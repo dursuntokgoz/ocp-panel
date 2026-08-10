@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>cPanel X3 Control Panel - adamowen.co.uk</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧡</text></svg>">
+</head>
+<body>
+
+  <!-- Authentic Centered Boxed Frame -->
+  <div class="x3-frame">
+
+    <!-- 1. Top Silver Navigation Bar -->
+    <div class="top-nav-bar">
+      <div class="top-nav-left">
+        <a href="../index.html" class="top-btn" title="Ana Portala Dön">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+          <span>PORTAL</span>
+        </a>
+        <a href="#" class="top-btn" onclick="cPanelApp.showDashboard(); return false;">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5.69l5 4.5V18h-2v-6H9v6H7v-7.81l5-4.5M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z"/></svg>
+          <span>HOME</span>
+        </a>
+      </div>
+      <div class="top-nav-right">
+        <a href="#" class="top-btn" onclick="alert('cPanel X3 Documentation & Help')">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 16h-2v-2h2v2zm1.07-7.75l-.9.92C12.45 11.9 12 12.5 12 14h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.04-.42 1.99-1.07 2.75z"/></svg>
+          <span>HELP</span>
+        </a>
+        <a href="#" class="top-btn" onclick="alert('Logging out of cPanel...')">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"/></svg>
+          <span>LOGOUT</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- 2. World Map Network Banner Header -->
+    <div class="x3-header-banner">
+      <div class="cpanel-vps-logo">
+        <span class="cp-badge-oval">cP</span>
+        <div class="cp-logo-text">cPanel <span>VPS</span></div>
+        <div class="vps-opt-tag">Optimized<sub>3</sub></div>
+      </div>
+    </div>
+
+    <!-- 3. Sub-Header Toolbar -->
+    <div class="x3-sub-header">
+      <div class="cpanel-tab">cPanel 11</div>
+      <div class="toolbar-selects">
+        <div class="toolbar-group">
+          <label>Switch Theme</label>
+          <select onchange="cPanelApp.changeTheme(this.value)">
+            <option value="x3" selected>x3</option>
+            <option value="dark">Dark Theme</option>
+          </select>
+        </div>
+        <div class="toolbar-group">
+          <label>Switch Account</label>
+          <select>
+            <option selected>adamowen (adamowen.co.uk)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Main Workspace Grid Layout -->
+    <div class="x3-wrapper">
+      
+      <!-- Left Sidebar -->
+      <aside class="x3-sidebar">
+        
+        <!-- Notices Widget -->
+        <div class="x3-box">
+          <div class="x3-box-header center">Notices</div>
+          <div class="x3-box-body">
+            <p class="notice-text">WARNING: You logged in with the reseller or root password.</p>
+          </div>
+        </div>
+
+        <!-- Find Search Widget -->
+        <div class="x3-box">
+          <div class="x3-box-header center">Find</div>
+          <div class="x3-box-body">
+            <input type="text" id="findSearchInput" class="find-input" placeholder="Search tools...">
+          </div>
+        </div>
+
+        <!-- Frequently Accessed Areas Widget -->
+        <div class="x3-box">
+          <div class="x3-box-header center">Frequently Accessed Areas</div>
+          <div class="x3-box-body">
+            <ul class="freq-list">
+              <li><a href="#" onclick="cPanelApp.openTool('fileManager'); return false;">File Manager</a></li>
+              <li><a href="#" onclick="cPanelApp.openTool('email'); return false;">Email Accounts</a></li>
+              <li><a href="#" onclick="cPanelApp.openTool('mysql'); return false;">MySQL Databases</a></li>
+              <li><a href="#" onclick="cPanelApp.openTool('subdomains'); return false;">Subdomains</a></li>
+              <li><a href="#" onclick="cPanelApp.openTool('zoneEditor'); return false;">Simple DNS Zone Editor</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Stats Widget -->
+        <div class="x3-box">
+          <div class="x3-box-header">
+            <span>Stats</span>
+            <span style="font-size:9px;">▼</span>
+          </div>
+          <div class="x3-box-body" style="padding:0;">
+            <table class="stats-table">
+              <tbody>
+                <tr>
+                  <td class="stats-label">Main Domain</td>
+                  <td class="stats-val">adamowen.co.uk</td>
+                </tr>
+                <tr>
+                  <td class="stats-label">Home Directory</td>
+                  <td class="stats-val">/home/adamowen</td>
+                </tr>
+                <tr>
+                  <td class="stats-label">Last Login From</td>
+                  <td class="stats-val">212.219.220.100</td>
+                </tr>
+                <tr>
+                  <td class="stats-label" colspan="2">
+                    Disk Space Usage
+                    <div class="stats-val" style="float:right;">NA / ∞</div>
+                    <div class="stats-bar-bg"><div class="stats-bar-fill" style="width:0%;"></div></div>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="stats-label" colspan="2">
+                    Monthly Bandwidth Transfer
+                    <div class="stats-val" style="float:right;">3.6 GB / ∞</div>
+                    <div class="stats-bar-bg"><div class="stats-bar-fill" style="width:12%;"></div></div>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="stats-label">Email Accounts</td>
+                  <td class="stats-val">8 / ∞</td>
+                </tr>
+                <tr>
+                  <td class="stats-label">Subdomains</td>
+                  <td class="stats-val">8 / ∞</td>
+                </tr>
+                <tr>
+                  <td class="stats-label">Parked Domains</td>
+                  <td class="stats-val">0 / ∞</td>
+                </tr>
+                <tr>
+                  <td class="stats-label">Addon Domains</td>
+                  <td class="stats-val">0 / ∞</td>
+                </tr>
+                <tr>
+                  <td class="stats-label">FTP Accounts</td>
+                  <td class="stats-val">0 / ∞</td>
+                </tr>
+                <tr>
+                  <td class="stats-label">Mailing Lists</td>
+                  <td class="stats-val">0 / ∞</td>
+                </tr>
+                <tr>
+                  <td class="stats-label">All SQL Databases</td>
+                  <td class="stats-val">5 / ∞</td>
+                </tr>
+                <tr>
+                  <td class="stats-label">MySQL Databases</td>
+                  <td class="stats-val">5</td>
+                </tr>
+                <tr>
+                  <td class="stats-label">MySQL Disk Space</td>
+                  <td class="stats-val">12.68 MB</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </aside>
+
+      <!-- Right Main Dashboard / Sub-page Content -->
+      <main class="x3-main" id="mainContentArea">
+        <!-- Dynamically populated by app.js and subpages.js -->
+      </main>
+
+    </div>
+
+  </div>
+
+  <script src="js/icons.js"></script>
+  <script src="js/subpages.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
