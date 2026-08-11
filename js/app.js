@@ -189,7 +189,8 @@ const cPanelApp = {
     this.setupSearch();
     this.updateStats();
     this.loadSwitchAccount();
-    console.log('OCP Panel Ready — ' + this.categories.reduce((n, c) => n + c.tools.length, 0) + ' modül yüklendi');
+    this.updateSwitchAccountIndicator();
+    console.log('OCP Panel Ready — ' + this.categories.reduce((n, c) => n + c.tools.length, 0) + ' modül yüklendi' + (PanelAPI.selectedReseller ? ' (reseller: ' + PanelAPI.selectedReseller + ')' : ''));
   },
 
   renderDashboard: function() {
@@ -322,13 +323,55 @@ const cPanelApp = {
         select.innerHTML = '<option value="">Reseller yok</option>';
         return;
       }
-      select.innerHTML = d.resellers.map(r => {
-        const label = r.username + (r.package ? ' (' + r.package + ')' : '');
-        return `<option value="${r.username}">${label}</option>`;
-      }).join('');
+      select.innerHTML = '<option value="">— root (tümü) —</option>' +
+        d.resellers.map(r => {
+          const label = r.username + (r.package ? ' (' + r.package + ')' : '');
+          return `<option value="${r.username}">${label}</option>`;
+        }).join('');
+      // Mevcut selectedReseller'ı seç
+      if (PanelAPI.selectedReseller) select.value = PanelAPI.selectedReseller;
     }).catch(() => {
       select.innerHTML = '<option value="">Yüklenemedi</option>';
     });
+    select.onchange = () => this.onSwitchAccount(select.value);
+  },
+
+  onSwitchAccount: function(username) {
+    if (username) {
+      PanelAPI.setSelectedReseller(username);
+      PanelAPI.switchReseller(username).then(d => {
+        const r = d.reseller;
+        this.showToast(`🔄 ${r.username} hesabına geçildi — ${r.domainCount} domain, ${r.emailCount} e-posta, ${r.ftpCount} FTP`);
+      }).catch(() => this.showToast('🔄 ' + username + ' hesabına geçildi'));
+    } else {
+      PanelAPI.setSelectedReseller(null);
+      this.showToast('🔄 root (tüm hesaplar) görünümüne dönüldü');
+    }
+    this.updateSwitchAccountIndicator();
+    // Eğer WHM modülü açıksa yeniden yükle
+    const mainContent = document.getElementById('mainContentArea');
+    if (mainContent && mainContent.querySelector('.subpage-container')) {
+      const breadcrumb = mainContent.querySelector('.breadcrumb');
+      if (breadcrumb) {
+        // Modülü yeniden aç
+        const subpageTitle = breadcrumb.textContent.split('»').pop().trim();
+        // En basit yöntem: dashboard'a dön
+        this.renderDashboard();
+        this.showToast('ℹ️ ' + (username || 'root') + ' görünümü — modülleri yenileyin');
+      }
+    }
+  },
+
+  updateSwitchAccountIndicator: function() {
+    const indicator = document.getElementById('switchAccountIndicator');
+    if (indicator) {
+      if (PanelAPI.selectedReseller) {
+        indicator.textContent = '👤 ' + PanelAPI.selectedReseller;
+        indicator.style.display = 'inline-block';
+      } else {
+        indicator.style.display = 'none';
+      }
+    }
   },
 
   changeTheme: function(themeName) {

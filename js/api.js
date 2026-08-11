@@ -11,6 +11,7 @@ const PanelAPI = {
   init() {
     this.token = localStorage.getItem('ocp_token') || null;
     this.user = localStorage.getItem('ocp_user') || null;
+    this.initSelectedReseller();
   },
 
   saveSession(token, user) {
@@ -99,23 +100,46 @@ const PanelAPI = {
   addReseller(r) { return this.post('/resellers', r); },
   updateReseller(name, data) { return this.request('PUT', '/resellers/' + encodeURIComponent(name), data); },
   deleteReseller(name) { return this.request('DELETE', '/resellers/' + encodeURIComponent(name)); },
-  getDomains() { return this.get('/domains'); },
-  addDomain(d) { return this.post('/domains', d); },
+  switchReseller(username) { return this.get('/resellers/switch/' + encodeURIComponent(username)); },
+
+  /* --- selectedReseller state --- */
+  selectedReseller: null,
+  setSelectedReseller(username) {
+    this.selectedReseller = username || null;
+    if (username) localStorage.setItem('ocp_selected_reseller', username);
+    else localStorage.removeItem('ocp_selected_reseller');
+  },
+  initSelectedReseller() {
+    this.selectedReseller = localStorage.getItem('ocp_selected_reseller') || null;
+  },
+  ownerParam() {
+    return this.selectedReseller ? '?owner=' + encodeURIComponent(this.selectedReseller) : '';
+  },
+
+  getDomains() { return this.get('/domains' + this.ownerParam()); },
+  addDomain(d) {
+    if (this.selectedReseller && !d.reseller) d.reseller = this.selectedReseller;
+    return this.post('/domains', d);
+  },
   updateDomain(name, data) { return this.request('PUT', '/domains/' + encodeURIComponent(name), data); },
   deleteDomain(name) { return this.request('DELETE', '/domains/' + encodeURIComponent(name)); },
 
   /* --- DNS --- */
-  getDnsZones() { return this.get('/dns-zones'); },
+  getDnsZones() { return this.get('/dns-zones' + this.ownerParam()); },
   updateDnsZone(domain, ip) { return this.request('PUT', '/dns-zones/' + encodeURIComponent(domain), { ip }); },
 
   /* --- Email (WHM) --- */
-  getEmails(domain) { return this.get('/emails' + (domain ? '?domain=' + encodeURIComponent(domain) : '')); },
+  getEmails(domain) {
+    let qs = this.ownerParam();
+    if (domain) qs += (qs ? '&' : '?') + 'domain=' + encodeURIComponent(domain);
+    return this.get('/emails' + qs);
+  },
   addEmail(data) { return this.post('/emails', data); },
   updateEmail(email, data) { return this.request('PUT', '/emails/' + encodeURIComponent(email), data); },
   deleteEmail(email) { return this.request('DELETE', '/emails/' + encodeURIComponent(email)); },
 
   /* --- FTP (WHM) --- */
-  getFtp() { return this.get('/ftp'); },
+  getFtp() { return this.get('/ftp' + this.ownerParam()); },
   addFtp(data) { return this.post('/ftp', data); },
   updateFtp(user, data) { return this.request('PUT', '/ftp/' + encodeURIComponent(user), data); },
   deleteFtp(user) { return this.request('DELETE', '/ftp/' + encodeURIComponent(user)); },

@@ -165,6 +165,21 @@ server {
     res.json({ ok: true });
   });
 
+/* ==========================================================
+ * RESELLER SWITCH — reseller bağlamı değiştir
+ * ========================================================== */
+  router.get('/resellers/switch/:username', auth, (req, res) => {
+    const username = req.params.username.toLowerCase();
+    const db = loadDB();
+    const reseller = db.resellers.find(r => r.username === username);
+    if (!reseller) return res.status(404).json({ error: 'Reseller bulunamadı: ' + username });
+    // Bu reseller'ın domain/email/ftp sayılarını döndür
+    const domainCount = db.domains.filter(d => d.reseller === username).length;
+    const emailCount = (db.emails || []).filter(e => e.owner === username).length;
+    const ftpCount = (db.ftp || []).filter(f => f.owner === username).length;
+    res.json({ ok: true, reseller: { ...reseller, domainCount, emailCount, ftpCount } });
+  });
+
   /* ==========================================================
    * RESELLER'LAR (sistem kullanıcıları)
    * ========================================================== */
@@ -247,12 +262,15 @@ server {
     res.json({ ok: true, removedDomains: domains.length });
   });
 
-  /* ==========================================================
-   * DOMAIN'LER
-   * ========================================================== */
+/* ==========================================================
+ * DOMAIN'LER
+ * ========================================================== */
   router.get('/domains', auth, (req, res) => {
     const db = loadDB();
-    const list = db.domains.map(d => {
+    const owner = String(req.query.owner || req.query.reseller || '').toLowerCase();
+    let domains = db.domains;
+    if (owner) domains = domains.filter(d => d.reseller === owner);
+    const list = domains.map(d => {
       const pkg = getPackage(db, (db.resellers.find(r => r.username === d.reseller) || {}).package);
       return {
         ...d,
@@ -490,13 +508,16 @@ server {
   router.get('/emails', auth, (req, res) => {
     const db = loadDB();
     const domainFilter = String(req.query.domain || '').toLowerCase();
+    const ownerFilter = String(req.query.owner || req.query.reseller || '').toLowerCase();
     const accs = readMailAccounts()
       .filter(a => !domainFilter || a.domain === domainFilter)
       .map(a => {
         const meta = (db.emails || []).find(e => e.email === a.email) || {};
+        if (ownerFilter && (meta.owner || '') !== ownerFilter) return null;
         const size = sudoDirSize(a.home);
         return { ...a, size, sizeH: fmtBytes(size), created: meta.created || '', owner: meta.owner || '' };
       })
+      .filter(Boolean)
       .sort((x, y) => x.domain.localeCompare(y.domain) || x.user.localeCompare(y.user));
     const totals = {};
     accs.forEach(a => { totals[a.domain] = (totals[a.domain] || 0) + a.size; });
@@ -625,12 +646,14 @@ server {
   // --- FTP hesaplarını listele ---
   router.get('/ftp', auth, (req, res) => {
     const db = loadDB();
+    const ownerFilter = String(req.query.owner || req.query.reseller || '').toLowerCase();
     const pwMap = readFtpPasswords();
     const accs = Object.entries(pwMap).map(([user, pw]) => {
       const conf = readFtpConf(user);
       const m = user.match(/^(.+)@(.+)$/);
       const dom = m ? db.domains.find(d => d.name === m[2]) : null;
       const meta = (db.ftp || []).find(f => f.user === user) || {};
+      if (ownerFilter && meta.owner !== ownerFilter) return null;
       return {
         user,
         guest: conf.guest,
@@ -640,7 +663,9 @@ server {
         sizeH: fmtBytes(conf.root ? sudoDirSize(conf.root) : 0),
         created: meta.created || ''
       };
-    }).sort((a, b) => a.user.localeCompare(b.user));
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.user.localeCompare(b.user));
     res.json({ ok: true, ftp: accs, total: accs.length });
   });
 
