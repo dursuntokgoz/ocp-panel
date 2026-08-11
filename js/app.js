@@ -11,6 +11,7 @@ const cPanelApp = {
       tools: [
         /* --- Home --- */
         { name: 'Server Status', icon: 'serverStatus', action: 'serverStatus' },
+        { name: 'Live Monitor', icon: 'liveMonitor', action: 'liveMonitor' },
         { name: 'Services', icon: 'services', action: 'services' },
         { name: 'Network Interfaces', icon: 'network', action: 'network' },
         { name: 'System Users', icon: 'systemUsers', action: 'systemUsers' },

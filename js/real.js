@@ -2401,4 +2401,144 @@ Object.assign(cPanelSubPages, {
         </div>
       </div>`;
   },
+
+  /* ---------- Live Monitor (SSE — gerçek zamanlı grafikler) ---------- */
+  liveMonitor() {
+    const self = this;
+    const html = `
+      ${this.renderBreadcrumb('System', 'Live Monitor')}
+      <div class="subpage-container">
+        ${this.header('📊 Live Monitor', 'Gerçek zamanlı sistem metrikleri (SSE)')}
+        <div class="x3-form-box" style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
+          <button class="btn-x3-primary" id="lmStartStop" onclick="cPanelSubPages.toggleLiveMonitor()">⏸️ Durdur</button>
+          <span style="font-size:12px;color:#889" id="lmStatus">● Canlı</span>
+          <span style="margin-left:auto;font-size:11px;color:#667" id="lmTime"></span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div class="x3-form-box" style="margin:0">
+            <h4 style="margin:0 0 8px 0;font-size:13px">🧠 CPU Kullanımı</h4>
+            <canvas id="lmCpuChart" height="120" style="width:100%"></canvas>
+            <div style="text-align:center;margin-top:6px"><span id="lmCpuVal" style="font-size:20px;font-weight:700">—</span><span style="font-size:12px;color:#667">%</span></div>
+          </div>
+          <div class="x3-form-box" style="margin:0">
+            <h4 style="margin:0 0 8px 0;font-size:13px">💾 RAM Kullanımı</h4>
+            <canvas id="lmMemChart" height="120" style="width:100%"></canvas>
+            <div style="text-align:center;margin-top:6px"><span id="lmMemVal" style="font-size:20px;font-weight:700">—</span><span style="font-size:12px;color:#667">%</span></div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+          <div class="x3-form-box" style="margin:0;text-align:center">
+            <div style="font-size:11px;color:#667;margin-bottom:4px">Load (1m)</div>
+            <div id="lmLoad1" style="font-size:18px;font-weight:700">—</div>
+          </div>
+          <div class="x3-form-box" style="margin:0;text-align:center">
+            <div style="font-size:11px;color:#667;margin-bottom:4px">Load (5m)</div>
+            <div id="lmLoad5" style="font-size:18px;font-weight:700">—</div>
+          </div>
+          <div class="x3-form-box" style="margin:0;text-align:center">
+            <div style="font-size:11px;color:#667;margin-bottom:4px">Sıcaklık</div>
+            <div id="lmTemp" style="font-size:18px;font-weight:700">—</div>
+          </div>
+          <div class="x3-form-box" style="margin:0;text-align:center">
+            <div style="font-size:11px;color:#667;margin-bottom:4px">Disk</div>
+            <div id="lmDisk" style="font-size:18px;font-weight:700">—</div>
+          </div>
+        </div>
+      </div>`;
+    setTimeout(() => this.startLiveMonitor(), 100);
+    return html;
+  },
+
+  startLiveMonitor() {
+    if (this._lmEventSource) return;
+    const token = localStorage.getItem('ocp_token');
+    if (!token) { this.toast('❌ Oturum bulunamadı'); return; }
+
+    const canvasCpu = document.getElementById('lmCpuChart');
+    const canvasMem = document.getElementById('lmMemChart');
+    if (!canvasCpu || !canvasMem) return;
+
+    const ctxCpu = canvasCpu.getContext('2d');
+    const ctxMem = canvasMem.getContext('2d');
+    const W = canvasCpu.width = canvasCpu.offsetWidth;
+    const H = canvasCpu.height = 120;
+    canvasMem.width = W; canvasMem.height = H;
+
+    const dataCpu = [], dataMem = [];
+    const maxPoints = 60;
+
+    const drawChart = (ctx, data, color, label) => {
+      ctx.clearRect(0, 0, W, H);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      const step = W / (maxPoints - 1);
+      data.forEach((v, i) => {
+        const x = i * step;
+        const y = H - (v / 100) * (H - 10) - 5;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      // Grid
+      ctx.strokeStyle = '#eee';
+      ctx.lineWidth = 0.5;
+      for (let i = 25; i < 100; i += 25) {
+        const y = H - (i / 100) * (H - 10) - 5;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+      }
+    };
+
+    const url = (location.protocol === 'https:' ? 'https:' : 'http:') + '//' + location.host + '/api/stats/stream';
+    this._lmEventSource = new EventSource(url + (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token));
+
+    this._lmEventSource.onmessage = (e) => {
+      try {
+        const d = JSON.parse(e.data);
+        dataCpu.push(d.cpu.usage);
+        dataMem.push(d.memory.pct);
+        if (dataCpu.length > maxPoints) dataCpu.shift();
+        if (dataMem.length > maxPoints) dataMem.shift();
+
+        drawChart(ctxCpu, dataCpu, '#e8740c', 'CPU');
+        drawChart(ctxMem, dataMem, '#27ae60', 'RAM');
+
+        document.getElementById('lmCpuVal').textContent = d.cpu.usage;
+        document.getElementById('lmMemVal').textContent = d.memory.pct;
+        document.getElementById('lmLoad1').textContent = d.load[0];
+        document.getElementById('lmLoad5').textContent = d.load[1];
+        document.getElementById('lmTemp').textContent = d.temp != null ? d.temp + '°C' : '—';
+        document.getElementById('lmDisk').textContent = d.disk.pct + '%';
+        document.getElementById('lmTime').textContent = new Date().toLocaleTimeString('tr-TR');
+      } catch (err) { console.error('[LiveMonitor]', err); }
+    };
+
+    this._lmEventSource.onerror = () => {
+      const status = document.getElementById('lmStatus');
+      if (status) { status.textContent = '● Bağlantı kesildi'; status.style.color = '#c0392b'; }
+    };
+
+    this._lmRunning = true;
+    const btn = document.getElementById('lmStartStop');
+    if (btn) { btn.textContent = '⏸️ Durdur'; }
+    const status = document.getElementById('lmStatus');
+    if (status) { status.textContent = '● Canlı'; status.style.color = '#27ae60'; }
+  },
+
+  stopLiveMonitor() {
+    if (this._lmEventSource) {
+      this._lmEventSource.close();
+      this._lmEventSource = null;
+    }
+    this._lmRunning = false;
+    const btn = document.getElementById('lmStartStop');
+    if (btn) { btn.textContent = '▶️ Başlat'; }
+    const status = document.getElementById('lmStatus');
+    if (status) { status.textContent = '○ Durdu'; status.style.color = '#889'; }
+  },
+
+  toggleLiveMonitor() {
+    if (this._lmRunning) this.stopLiveMonitor();
+    else this.startLiveMonitor();
+  },
 });

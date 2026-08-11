@@ -365,6 +365,55 @@ module.exports = ({ run, runJson, auth, issueToken, sessions, PANEL_PASSWORD }) 
     res.json({ ok: true, uptime: os.uptime(), boot: (() => { try { return run(`uptime -s`).output.trim(); } catch (e) { return null; } })() });
   });
 
+/* ==========================================================
+ * SSE — Gerçek zamanlı metrikler (Server-Sent Events)
+ * ========================================================== */
+  router.get('/stats/stream', auth, (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const interval = setInterval(async () => {
+      try {
+        const cpu = await cpuUsage();
+        const mem = os.totalmem();
+        const memFree = os.freemem();
+        const load = os.loadavg();
+        const root = diskInfo().find(d => d.mount === '/') || diskInfo()[0] || {};
+        const net = (() => {
+          try {
+            const j = jsonParse(run(`ip -j -s link`).output) || [];
+            let rx = 0, tx = 0;
+            j.forEach(i => {
+              if (i.ifname !== 'lo') {
+                rx += i.stats64?.rx_bytes || 0;
+                tx += i.stats64?.tx_bytes || 0;
+              }
+            });
+            return { rx, tx };
+          } catch (e) { return { rx: 0, tx: 0 }; }
+        })();
+
+        const data = {
+          cpu: { usage: cpu, cores: os.cpus().length },
+          memory: { total: mem, used: mem - memFree, free: memFree, pct: Math.round(((mem - memFree) / mem) * 100) },
+          disk: { total: root.size || 0, used: root.used || 0, free: root.avail || 0, pct: parseInt(root.pct) || 0 },
+          load: load.map(l => +l.toFixed(2)),
+          temp: temp(),
+          network: { rx: net.rx, tx: net.tx },
+          timestamp: Date.now()
+        };
+
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+      } catch (e) {
+        console.error('[SSE] error:', e.message);
+      }
+    }, 1000);
+
+    req.on('close', () => clearInterval(interval));
+  });
+
   /* ==========================================================
    * SAĞLIK (auth'suz — servis durumu kontrolü için)
    * ========================================================== */
