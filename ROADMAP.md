@@ -49,7 +49,16 @@
 - [x] Sertifika yolu: `~/ocp-panel/ssl/ocp-panel.{key,crt}` (panel kullanıcısı erişebilir)
 - [x] Tarayıcı uyarısı: self-signed olduğu için "Güvenli değil" uyarısı gelir, "Gelişmiş" → "Devam et" ile geçilebilir
 
-### 📧 E-posta (gerçek postfix + dovecot)
+### 📊 Live Monitor (SSE — Server-Sent Events)
+- [x] SSE endpoint: `GET /api/stats/stream` (Bearer token via query param)
+- [x] Her 1 saniyede: CPU, RAM, Disk, Load (1m/5m), Sıcaklık, Network (RX/TX bytes)
+- [x] Frontend Canvas grafikler: 60 saniyelik sliding window (CPU kırmızı, RAM yeşil)
+- [x] Gerçek zamanlı değerler: Load, Sıcaklık, Disk kullanımı
+- [x] Başlat/Durdur kontrolü, bağlantı durumu göstergesi
+- [x] Sıfır bağımlılık — pure Canvas, Chart.js yok
+- [x] System kategorisine "Live Monitor" eklendi
+
+### 📁 FTP (gerçek vsftpd)
 - [x] postfix sanal domainler (`virtual_mailbox_domains` + map'ler, panelden senkronize)
 - [x] dovecot passwd-file auth — SMTP SASL (587) + IMAP (143) + POP3 (110)
 - [x] maildir teslimi (`/var/mail/vhosts/<domain>/<user>/`), vmail (uid 5000)

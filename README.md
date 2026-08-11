@@ -236,6 +236,7 @@ ocp-panel/
 - [x] FTP hesapları (vsftpd)
 - [x] Webmail (Roundcube)
 - [x] HTTPS (self-signed SSL)
+- [x] Gerçek zamanlı grafikler (SSE + Canvas)
 
 ---
 
