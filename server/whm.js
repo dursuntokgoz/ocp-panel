@@ -340,6 +340,59 @@ server {
     res.json({ ok: true });
   });
 
+  /* ==========================================================
+   * DNS FUNCTIONS — gerçek zone yönetimi
+   * A kaydı: /etc/hosts · CNAME: nginx vhost · NS: sunucu adı
+   * ========================================================== */
+  router.get('/dns-zones', auth, (req, res) => {
+    const db = loadDB();
+    const hostname = os.hostname();
+    const ip = (() => { try { return run(`hostname -I`).output.trim().split(' ')[0]; } catch (e) { return '127.0.0.1'; } })();
+    const zones = db.domains.map(d => {
+      // A kaydı: hosts'tan oku
+      let aIp = ip;
+      try {
+        const h = run(`grep " ${d.name}$" /etc/hosts`).output.trim();
+        const m = h.match(/^([\d.]+)\s/);
+        if (m) aIp = m[1];
+      } catch (e) { /* yoksay */ }
+      const serial = Math.floor(new Date(d.created || Date.now()).getTime() / 1000);
+      return {
+        domain: d.name,
+        serial,
+        records: [
+          { type: 'A', name: d.name, ttl: 14400, value: aIp },
+          { type: 'CNAME', name: 'www.' + d.name, ttl: 14400, value: d.name + '.' },
+          { type: 'MX', name: d.name, ttl: 14400, value: '10 mail.' + d.name + '.' },
+          { type: 'NS', name: d.name, ttl: 86400, value: 'ns1.' + hostname + '.' },
+          { type: 'NS', name: d.name, ttl: 86400, value: 'ns2.' + hostname + '.' },
+          { type: 'TXT', name: d.name, ttl: 14400, value: 'v=spf1 +a +mx ~all' }
+        ]
+      };
+    });
+    res.json({ ok: true, zones, nameserver: 'ns1.' + hostname, ip });
+  });
+
+  // A kaydı IP güncelle → /etc/hosts (yoksa ekle, varsa değiştir)
+  router.put('/dns-zones/:domain', auth, (req, res) => {
+    const name = req.params.domain.toLowerCase();
+    const ip = String(req.body.ip || '').trim();
+    if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) return res.status(400).json({ error: 'Geçersiz IP adresi' });
+    const db = loadDB();
+    if (!db.domains.some(d => d.name === name)) return res.status(404).json({ error: 'Zone bulunamadı' });
+    // hosts'ta var mı?
+    const exists = run(`grep -q " ${name}$" /etc/hosts`);
+    let r;
+    if (exists.ok) {
+      // var: sed ile değiştir
+      r = sudo(`sed -i "s/^[0-9.]* ${name}$/${ip} ${name}/" /etc/hosts`, 10000);
+    } else {
+      // yok: ekle
+      r = sudo(`sh -c 'echo "${ip} ${name}" >> /etc/hosts'`, 10000);
+    }
+    res.json({ ok: r.ok, output: (r.ok ? 'A kaydı güncellendi: ' : 'Hata: ') + name + ' → ' + ip + (r.output ? ' (' + r.output.trim() + ')' : '') });
+  });
+
   /* ---------- yardımcı ---------- */
   function fmtBytes(n) {
     if (n == null || isNaN(n)) return '—';

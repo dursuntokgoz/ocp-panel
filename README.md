@@ -28,6 +28,14 @@ Panel, klasik cPanel X3 arayüzünü birebir taklit eder; ancak arkasında **ger
 |---|
 | ![Hosting Packages](screenshots/hosting-packages.png) |
 
+| List Accounts (WHM) | Reseller Center (WHM) |
+|---|---|
+| ![List Accounts](screenshots/whm-list-accounts.png) | ![Reseller Center](screenshots/whm-reseller-center.png) |
+
+| DNS Zone Manager (WHM) |
+|---|
+| ![DNS Zone Manager](screenshots/whm-dns-zones.png) |
+
 ---
 
 ## ✨ Özellikler
@@ -55,17 +63,23 @@ Panel, klasik cPanel X3 arayüzünü birebir taklit eder; ancak arkasında **ger
 | `GET /api/disk?path=` | `du` analizi + `df` bölümleri |
 | `GET /api/mysql` | MariaDB durumu + veritabanı listesi |
 | `POST /api/terminal` | Gerçek shell komutu çalıştırma (60s limit) |
-| `GET/POST /api/packages` | Hosting paketleri listele/oluştur |
-| `PUT/DELETE /api/packages/:name` | Paket düzenle/sil |
-| `GET/POST /api/resellers` | Reseller listele/oluştur (sistem kullanıcısı) |
-| `PUT/DELETE /api/resellers/:name` | Reseller düzenle/sil |
-| `GET/POST /api/domains` | Domain listele/ekle (nginx vhost + hosts) |
+| `GET/POST /api/packages` | Hosting paketleri CRUD |
+| `PUT/DELETE /api/packages/:name` | Paket düzenle/sil (kullanımdaki paket silinemez) |
+| `GET/POST /api/resellers` | Reseller (sistem kullanıcısı) CRUD |
+| `PUT/DELETE /api/resellers/:name` | Reseller düzenle/sil (cascade domain temizliği) |
+| `GET/POST /api/domains` | Domain CRUD — nginx vhost + /etc/hosts + reload |
 | `PUT/DELETE /api/domains/:name` | Domain düzenle/sil |
+| `GET /api/dns-zones` | Tüm zone'lar: A, CNAME, MX, NS, TXT kayıtları |
+| `PUT /api/dns-zones/:domain` | A kaydı IP güncelle → gerçek /etc/hosts değişikliği |
 
 ### 🖥️ Frontend Modülleri
-- **WHM:** Domain Manager (nginx vhost), Reseller Manager (sistem kullanıcıları), Hosting Packages (kota tanımları)
-- **System:** Server Status, Services (systemd), Network Interfaces, System Users, Package Updates
-- **Gerçek veriyle çalışanlar:** Terminal, File Manager, Process Manager, Cron Jobs, Error Logs, Disk Usage, MySQL, Resource Usage, CPU/Concurrent, Visitors, Bandwidth
+- **WHM (WebHost Manager) — gerçek WHM menü yapısı:**
+  - **Home:** Server Status, Services, Network Interfaces, System Users, Package Updates
+  - **Account Functions:** Create a New Account, List Accounts, Modify an Account, Terminate an Account
+  - **Packages:** Add a Package, Edit a Package, Delete a Package, List Packages
+  - **Resellers:** Reseller Center, Create a Reseller, Reseller Modification, Terminate a Reseller
+  - **DNS Functions:** DNS Zone Manager, Add a DNS Zone, Edit DNS Zone
+- **Gerçek veriyle çalışan cPanel modülleri:** Terminal, File Manager, Process Manager, Cron Jobs, Error Logs, Disk Usage, MySQL, Resource Usage, CPU/Concurrent, Visitors, Bandwidth
 - **Tema korumalı simülasyon modülleri:** Mail, Domains, Security, Software kategorileri (cPanel klonu olarak)
 - Canlı sidebar istatistikleri: disk, RAM, çalışan servis, proses, docker, sıcaklık
 - Arama, kategori aç/kapa, light/dark tema

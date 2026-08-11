@@ -1162,3 +1162,705 @@ Object.assign(cPanelSubPages, {
     window.open('http://' + name, '_blank');
   }
 });
+
+/* ============================================================
+ * GERÇEK WHM MODÜLLERİ — cPanel WHM menü yapısı
+ * Account Functions · Packages · Resellers · DNS Functions
+ * ============================================================ */
+Object.assign(cPanelSubPages, {
+
+  /* ======================================================
+   * ACCOUNT FUNCTIONS
+   * ====================================================== */
+
+  /* ---------- Create a New Account (WHM formu) ---------- */
+  createAccount() {
+    const html = `
+      ${this.renderBreadcrumb('WHM', 'Account Functions » Create a New Account')}
+      <div class="subpage-container">
+        ${this.header('➕ Create a New Account', 'Yeni hosting hesabı oluşturun — gerçek sistem kullanıcısı + domain + paket')}
+        <div class="x3-form-box">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+            <div><label style="font-size:12px;color:#667">Domain *</label><input type="text" id="caDomain" class="x3-input" placeholder="ornek.com"></div>
+            <div><label style="font-size:12px;color:#667">Kullanıcı Adı *</label><input type="text" id="caUser" class="x3-input" placeholder="kullanici"></div>
+            <div><label style="font-size:12px;color:#667">Parola *</label><input type="text" id="caPass" class="x3-input" placeholder="en az 6 karakter"></div>
+            <div><label style="font-size:12px;color:#667">Paket *</label><select id="caPkg" class="x3-input"></select></div>
+            <div><label style="font-size:12px;color:#667">E-posta</label><input type="email" id="caEmail" class="x3-input" placeholder="opsiyonel"></div>
+            <div><label style="font-size:12px;color:#667">Kök Dizin</label><input type="text" id="caRoot" class="x3-input" placeholder="otomatik: /home/kullanici/public_html"></div>
+          </div>
+          <div style="margin-top:14px;display:flex;gap:10px;align-items:center">
+            <button class="btn-x3-primary" onclick="cPanelSubPages.createAccountSubmit()">➕ Hesap Oluştur</button>
+            <span style="font-size:12px;color:#889">Domain girilirse nginx vhost + DNS zone otomatik oluşturulur</span>
+          </div>
+          <div id="caMsg" style="margin-top:10px;font-size:13px"></div>
+        </div>
+      </div>`;
+    setTimeout(() => this.loadCaPkgs(), 50);
+    return html;
+  },
+
+  loadCaPkgs() {
+    const sel = document.getElementById('caPkg');
+    if (!sel) return;
+    PanelAPI.getPackages().then(d => {
+      sel.innerHTML = d.packages.map(p => `<option value="${esc(p.name)}">${esc(p.name)} (${p.diskGB}GB / ${p.domains || '∞'} domain)</option>`).join('') || '<option value="">Önce paket oluşturun (Add a Package)</option>';
+    }).catch(() => {});
+  },
+
+  createAccountSubmit() {
+    const domain = document.getElementById('caDomain').value.trim().toLowerCase();
+    const user = document.getElementById('caUser').value.trim().toLowerCase();
+    const pass = document.getElementById('caPass').value;
+    const pkg = document.getElementById('caPkg').value;
+    const email = document.getElementById('caEmail').value.trim();
+    const root = document.getElementById('caRoot').value.trim();
+    const msg = document.getElementById('caMsg');
+    if (!domain || !user || !pass || !pkg) {
+      if (msg) msg.innerHTML = '<span style="color:#c0392b">Domain, kullanıcı adı, parola ve paket zorunludur</span>';
+      return;
+    }
+    if (msg) msg.innerHTML = '<span style="color:#667">⏳ Hesap oluşturuluyor… (sistem kullanıcısı + domain + vhost)</span>';
+    // 1) reseller (sistem kullanıcısı)
+    PanelAPI.addReseller({ username: user, password: pass, package: pkg, email }).then(() => {
+      // 2) domain + vhost
+      const data = { name: domain, reseller: user };
+      if (root) data.root = root;
+      return PanelAPI.addDomain(data);
+    }).then(d => {
+      if (msg) msg.innerHTML = `<span style="color:#27ae60">✅ Hesap oluşturuldu: <strong>${esc(user)}</strong> — domain <strong>${esc(domain)}</strong> canlı${d.nginx === 'reloaded' ? ' (nginx ✓)' : ''}</span>`;
+      this.toast('✅ Hesap oluşturuldu: ' + user + ' @ ' + domain);
+      ['caDomain', 'caUser', 'caPass', 'caEmail', 'caRoot'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    }).catch(e => {
+      if (msg) msg.innerHTML = `<span style="color:#c0392b">❌ ${esc(e.message)}</span>`;
+      this.toast('❌ ' + e.message);
+    });
+  },
+
+  /* ---------- List Accounts ---------- */
+  listAccounts() {
+    const html = `
+      ${this.renderBreadcrumb('WHM', 'Account Functions » List Accounts')}
+      <div class="subpage-container">
+        ${this.header('📋 List Accounts', 'Tüm hosting hesapları — kullanıcı, domain, paket, disk')}
+        <div class="x3-form-box" style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
+          <input type="text" id="laFilter" class="x3-input" placeholder="Hesap ara…" style="flex:1" oninput="cPanelSubPages.loadListAccounts()">
+          <button class="btn-x3-primary" onclick="cPanelSubPages.loadListAccounts()">🔄 Yenile</button>
+        </div>
+        <div id="laBody">${loadingBox('Hesaplar yükleniyor…')}</div>
+      </div>`;
+    setTimeout(() => this.loadListAccounts(), 50);
+    return html;
+  },
+
+  loadListAccounts() {
+    const body = document.getElementById('laBody');
+    if (!body) return;
+    const q = ((document.getElementById('laFilter') || {}).value || '').toLowerCase();
+    Promise.all([PanelAPI.getResellers(), PanelAPI.getDomains()]).then(([rs, ds]) => {
+      const rows = rs.resellers.map(r => {
+        const doms = ds.domains.filter(d => d.reseller === r.username);
+        const pkg = r.packageInfo;
+        return `
+          <tr>
+            <td style="padding:8px"><strong>${esc(r.username)}</strong></td>
+            <td style="padding:8px;font-size:12px">${doms.map(d => esc(d.name)).join('<br>') || '<span style="color:#889">—</span>'}</td>
+            <td style="padding:8px"><span class="badge-active">${esc(r.package)}</span></td>
+            <td style="padding:8px">${r.diskUsedH} ${pkg ? '/ ' + pkg.diskGB + ' GB' : ''}</td>
+            <td style="padding:8px">${r.domainCount} ${pkg && pkg.domains ? '/ ' + pkg.domains : ''}</td>
+            <td style="padding:8px">${r.exists ? '<span class="badge-active">●</span>' : '<span class="badge-warn">●</span>'}</td>
+            <td style="padding:8px;font-size:11px;color:#889">${esc((r.created || '').slice(0, 10))}</td>
+          </tr>`;
+      }).join('');
+      const filtered = rs.resellers.filter(r => !q || r.username.toLowerCase().includes(q) || (r.package || '').toLowerCase().includes(q));
+      body.innerHTML = filtered.length === 0
+        ? '<div class="x3-form-box" style="text-align:center;color:#889;padding:24px">Hesap bulunamadı — Create a New Account ile oluşturun</div>'
+        : `<div class="x3-form-box" style="padding:10px 16px;margin-bottom:10px;font-size:13px;color:#667"><strong>${filtered.length}</strong> hesap</div>
+           <div class="x3-form-box" style="padding:0;overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead><tr style="text-align:left;border-bottom:2px solid #e5e9f0;color:#556"><th style="padding:8px">Kullanıcı</th><th style="padding:8px">Domain'ler</th><th style="padding:8px">Paket</th><th style="padding:8px">Disk</th><th style="padding:8px">Domain Limiti</th><th style="padding:8px">Durum</th><th style="padding:8px">Oluşturma</th></tr></thead>
+              <tbody>${filtered.map(r => {
+                const doms = ds.domains.filter(d => d.reseller === r.username);
+                const pkg = r.packageInfo;
+                return `
+                <tr>
+                  <td style="padding:8px"><strong>${esc(r.username)}</strong></td>
+                  <td style="padding:8px;font-size:12px">${doms.map(d => esc(d.name)).join('<br>') || '<span style="color:#889">—</span>'}</td>
+                  <td style="padding:8px"><span class="badge-active">${esc(r.package)}</span></td>
+                  <td style="padding:8px">${r.diskUsedH} ${pkg ? '/ ' + pkg.diskGB + ' GB' : ''}</td>
+                  <td style="padding:8px">${r.domainCount} ${pkg && pkg.domains ? '/ ' + pkg.domains : ''}</td>
+                  <td style="padding:8px">${r.exists ? '<span class="badge-active">● Aktif</span>' : '<span class="badge-warn">● Yok</span>'}</td>
+                  <td style="padding:8px;font-size:11px;color:#889">${esc((r.created || '').slice(0, 10))}</td>
+                </tr>`;
+              }).join('')}
+              </tbody>
+            </table>
+          </div>`;
+    }).catch(e => { body.innerHTML = errBox(e.message); });
+  },
+
+  /* ---------- Modify an Account ---------- */
+  modifyAccount() {
+    const html = `
+      ${this.renderBreadcrumb('WHM', 'Account Functions » Modify an Account')}
+      <div class="subpage-container">
+        ${this.header('✏️ Modify an Account', 'Hesap düzenleme — paket, parola, e-posta değişikliği')}
+        <div class="x3-form-box" style="margin-bottom:12px">
+          <label style="font-size:12px;color:#667">Hesap Seç</label>
+          <select id="maSel" class="x3-input" onchange="cPanelSubPages.loadModifyForm()" style="margin-top:4px"></select>
+        </div>
+        <div id="maBody"></div>
+      </div>`;
+    setTimeout(() => {
+      PanelAPI.getResellers().then(d => {
+        const sel = document.getElementById('maSel');
+        if (!sel) return;
+        sel.innerHTML = d.resellers.map(r => `<option value="${esc(r.username)}">${esc(r.username)} (${esc(r.package)})</option>`).join('');
+        if (d.resellers.length) this.loadModifyForm();
+      }).catch(() => {});
+    }, 50);
+    return html;
+  },
+
+  loadModifyForm() {
+    const sel = document.getElementById('maSel');
+    const body = document.getElementById('maBody');
+    if (!sel || !body) return;
+    const uname = sel.value;
+    if (!uname) { body.innerHTML = ''; return; }
+    PanelAPI.getResellers().then(d => {
+      const r = d.resellers.find(x => x.username === uname);
+      if (!r) return;
+      PanelAPI.getPackages().then(pd => {
+        body.innerHTML = `
+          <div class="x3-form-box">
+            <h3 style="margin-top:0">Hesap: <code>${esc(r.username)}</code></h3>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+              <div><label style="font-size:12px;color:#667">Paket (Upgrade/Downgrade)</label>
+                <select id="maPkg" class="x3-input">${pd.packages.map(p => `<option value="${esc(p.name)}" ${p.name === r.package ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></div>
+              <div><label style="font-size:12px;color:#667">Yeni Parola (boş = değişmez)</label><input type="text" id="maPass" class="x3-input" placeholder="boş bırakın"></div>
+              <div><label style="font-size:12px;color:#667">E-posta</label><input type="email" id="maEmail" class="x3-input" value="${esc(r.email || '')}"></div>
+            </div>
+            <div style="margin-top:14px;display:flex;gap:8px">
+              <button class="btn-x3-primary" onclick="cPanelSubPages.modifyAccountSubmit()">💾 Kaydet</button>
+              <button class="btn-x3-sm danger" onclick="cPanelSubPages.terminateAccount()">🗑 Terminate</button>
+            </div>
+            <div id="maMsg" style="margin-top:10px;font-size:13px"></div>
+          </div>`;
+      }).catch(() => {});
+    }).catch(() => {});
+  },
+
+  modifyAccountSubmit() {
+    const sel = document.getElementById('maSel');
+    const msg = document.getElementById('maMsg');
+    const data = {};
+    const pkg = document.getElementById('maPkg');
+    if (pkg) data.package = pkg.value;
+    const em = document.getElementById('maEmail');
+    if (em) data.email = em.value.trim();
+    const pw = document.getElementById('maPass');
+    if (pw && pw.value) data.password = pw.value;
+    PanelAPI.updateReseller(sel.value, data).then(() => {
+      if (msg) msg.innerHTML = '<span style="color:#27ae60">✅ Hesap güncellendi</span>';
+      this.toast('✅ Hesap güncellendi: ' + sel.value);
+      this.loadModifyForm();
+    }).catch(e => {
+      if (msg) msg.innerHTML = `<span style="color:#c0392b">❌ ${esc(e.message)}</span>`;
+    });
+  },
+
+  /* ---------- Terminate an Account ---------- */
+  terminateAccount() {
+    const sel = document.getElementById('maSel');
+    if (!sel || !sel.value) return;
+    const uname = sel.value;
+    if (!confirm(`Hesap "${uname}" sonlandırılsın mı?\n\n⚠️ Sistem kullanıcısı, tüm dosyalar ve domain'ler silinecek!`)) return;
+    PanelAPI.deleteReseller(uname).then(d => {
+      this.toast('🗑 Hesap sonlandırıldı: ' + uname + (d.removedDomains ? ' (' + d.removedDomains + ' domain)' : ''));
+      location.reload();
+    }).catch(e => this.toast('❌ ' + e.message));
+  },
+
+  /* ======================================================
+   * PACKAGES
+   * ====================================================== */
+
+  /* ---------- Add a Package ---------- */
+  addPackage() {
+    return this.packageForm('add');
+  },
+
+  /* ---------- Edit a Package ---------- */
+  editPackage() {
+    return this.packageForm('edit');
+  },
+
+  /* ---------- Delete a Package ---------- */
+  deletePackage() {
+    const html = `
+      ${this.renderBreadcrumb('WHM', 'Packages » Delete a Package')}
+      <div class="subpage-container">
+        ${this.header('🗑 Delete a Package', 'Paket silme — kullanımdaki paketler silinemez')}
+        <div id="dpBody">${loadingBox('Paketler yükleniyor…')}</div>
+      </div>`;
+    setTimeout(() => {
+      PanelAPI.getPackages().then(d => {
+        const el = document.getElementById('dpBody');
+        if (!el) return;
+        el.innerHTML = d.packages.length === 0
+          ? '<div class="x3-form-box" style="text-align:center;color:#889;padding:24px">Paket yok</div>'
+          : `<div class="x3-form-box" style="padding:0;overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse;font-size:13px">
+                <thead><tr style="text-align:left;border-bottom:2px solid #e5e9f0;color:#556"><th style="padding:8px">Paket</th><th style="padding:8px">Disk</th><th style="padding:8px">Domain</th><th style="padding:8px">E-posta</th><th style="padding:8px">Bant</th><th style="padding:8px;text-align:right">Aksiyon</th></tr></thead>
+                <tbody>${d.packages.map(p => `
+                  <tr>
+                    <td style="padding:8px"><strong>${esc(p.name)}</strong></td>
+                    <td style="padding:8px">${p.diskGB} GB</td><td style="padding:8px">${p.domains || '∞'}</td><td style="padding:8px">${p.emails || '∞'}</td><td style="padding:8px">${p.bandwidthGB || '∞'} GB</td>
+                    <td style="padding:8px;text-align:right"><button class="btn-x3-sm danger" onclick="cPanelSubPages.deletePackageSubmit('${esc(p.name)}')">🗑 Sil</button></td>
+                  </tr>`).join('')}
+                </tbody>
+              </table>
+            </div>`;
+      }).catch(e => {
+        const el = document.getElementById('dpBody');
+        if (el) el.innerHTML = errBox(e.message);
+      });
+    }, 50);
+    return html;
+  },
+
+  deletePackageSubmit(name) {
+    if (!confirm(`"${name}" paketi silinsin mi?`)) return;
+    PanelAPI.deletePackage(name).then(() => {
+      this.toast('🗑 Paket silindi: ' + name);
+      cPanelSubPages.deletePackage();
+    }).catch(e => this.toast('❌ ' + e.message));
+  },
+
+  /* ---------- List Packages ---------- */
+  listPackages() {
+    const html = `
+      ${this.renderBreadcrumb('WHM', 'Packages » List Packages')}
+      <div class="subpage-container">
+        ${this.header('📦 List Packages', 'Tüm hosting paketleri')}
+        <div id="lpBody">${loadingBox('Paketler yükleniyor…')}</div>
+      </div>`;
+    setTimeout(() => {
+      PanelAPI.getPackages().then(d => {
+        const el = document.getElementById('lpBody');
+        if (!el) return;
+        const inUse = name => {
+          let n = 0;
+          return PanelAPI.getResellers().then(rs => {
+            n = rs.resellers.filter(r => r.package === name).length;
+            return n;
+          });
+        };
+        Promise.all(d.packages.map(p => inUse(p.name))).then(counts => {
+          el.innerHTML = `<div class="x3-form-box" style="padding:0;overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead><tr style="text-align:left;border-bottom:2px solid #e5e9f0;color:#556"><th style="padding:8px">Paket</th><th style="padding:8px">Disk</th><th style="padding:8px">Domain</th><th style="padding:8px">E-posta</th><th style="padding:8px">Subdomain</th><th style="padding:8px">Bant</th><th style="padding:8px">Fiyat</th><th style="padding:8px">Kullanım</th></tr></thead>
+              <tbody>${d.packages.map((p, i) => `
+                <tr>
+                  <td style="padding:8px"><strong>${esc(p.name)}</strong></td>
+                  <td style="padding:8px">${p.diskGB} GB</td><td style="padding:8px">${p.domains || '∞'}</td><td style="padding:8px">${p.emails || '∞'}</td><td style="padding:8px">${p.subdomains || '∞'}</td><td style="padding:8px">${p.bandwidthGB || '∞'} GB</td><td style="padding:8px">${p.price > 0 ? p.price + ' ₺' : 'Ücretsiz'}</td>
+                  <td style="padding:8px">${counts[i] ? counts[i] + ' hesap' : '<span style="color:#889">boşta</span>'}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>`;
+        });
+      }).catch(e => {
+        const el = document.getElementById('lpBody');
+        if (el) el.innerHTML = errBox(e.message);
+      });
+    }, 50);
+    return html;
+  },
+
+  /* ---------- ortak paket formu ---------- */
+  packageForm(mode) {
+    const isEdit = mode === 'edit';
+    const html = `
+      ${this.renderBreadcrumb('WHM', 'Packages » ' + (isEdit ? 'Edit a Package' : 'Add a Package'))}
+      <div class="subpage-container">
+        ${this.header(isEdit ? '✏️ Edit a Package' : '➕ Add a Package', isEdit ? 'Mevcut paketi düzenleyin' : 'Yeni hosting paketi oluşturun')}
+        ${isEdit ? `<div class="x3-form-box" style="margin-bottom:12px"><label style="font-size:12px;color:#667">Paket Seç</label><select id="pfSel" class="x3-input" onchange="cPanelSubPages.loadPackageForm()" style="margin-top:4px"></select></div>` : ''}
+        <div class="x3-form-box">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">
+            <div><label style="font-size:12px;color:#667">Paket Adı *</label><input type="text" id="pfName" class="x3-input" placeholder="örn: Basic" ${isEdit ? 'readonly style="background:#f0f2f5"' : ''}></div>
+            <div><label style="font-size:12px;color:#667">Disk (GB)</label><input type="number" id="pfDisk" class="x3-input" value="5" min="0"></div>
+            <div><label style="font-size:12px;color:#667">Domain Sayısı</label><input type="number" id="pfDomains" class="x3-input" value="3" min="0"></div>
+            <div><label style="font-size:12px;color:#667">E-posta Sayısı</label><input type="number" id="pfEmails" class="x3-input" value="5" min="0"></div>
+            <div><label style="font-size:12px;color:#667">Subdomain Sayısı</label><input type="number" id="pfSub" class="x3-input" value="5" min="0"></div>
+            <div><label style="font-size:12px;color:#667">Bant Genişliği (GB)</label><input type="number" id="pfBW" class="x3-input" value="10" min="0"></div>
+            <div><label style="font-size:12px;color:#667">Fiyat (₺)</label><input type="number" id="pfPrice" class="x3-input" value="0" min="0"></div>
+          </div>
+          <div style="margin-top:14px"><button class="btn-x3-primary" onclick="cPanelSubPages.packageFormSubmit('${mode}')">${isEdit ? '💾 Güncelle' : '➕ Oluştur'}</button></div>
+          <div id="pfMsg" style="margin-top:8px;font-size:13px"></div>
+        </div>
+      </div>`;
+    if (isEdit) {
+      setTimeout(() => {
+        PanelAPI.getPackages().then(d => {
+          const sel = document.getElementById('pfSel');
+          if (!sel) return;
+          sel.innerHTML = d.packages.map(p => `<option value="${esc(p.name)}">${esc(p.name)}</option>`).join('');
+          if (d.packages.length) this.loadPackageForm();
+        }).catch(() => {});
+      }, 50);
+    }
+    return html;
+  },
+
+  loadPackageForm() {
+    const sel = document.getElementById('pfSel');
+    if (!sel || !sel.value) return;
+    PanelAPI.getPackages().then(d => {
+      const p = d.packages.find(x => x.name === sel.value);
+      if (!p) return;
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+      set('pfName', p.name); set('pfDisk', p.diskGB); set('pfDomains', p.domains);
+      set('pfEmails', p.emails); set('pfSub', p.subdomains); set('pfBW', p.bandwidthGB); set('pfPrice', p.price);
+    }).catch(() => {});
+  },
+
+  packageFormSubmit(mode) {
+    const msg = document.getElementById('pfMsg');
+    const data = {
+      name: document.getElementById('pfName').value.trim(),
+      diskGB: +document.getElementById('pfDisk').value || 0,
+      domains: +document.getElementById('pfDomains').value || 0,
+      emails: +document.getElementById('pfEmails').value || 0,
+      subdomains: +document.getElementById('pfSub').value || 0,
+      bandwidthGB: +document.getElementById('pfBW').value || 0,
+      price: +document.getElementById('pfPrice').value || 0
+    };
+    if (!data.name) { if (msg) msg.innerHTML = '<span style="color:#c0392b">Paket adı gerekli</span>'; return; }
+    const done = () => {
+      if (msg) msg.innerHTML = `<span style="color:#27ae60">✅ Paket ${mode === 'edit' ? 'güncellendi' : 'oluşturuldu'}: ${esc(data.name)}</span>`;
+      this.toast(mode === 'edit' ? '💾 Paket güncellendi' : '✅ Paket oluşturuldu');
+      if (mode === 'add') { const el = document.getElementById('pfName'); if (el) el.value = ''; }
+      else this.loadPackageForm();
+    };
+    const req = mode === 'edit'
+      ? PanelAPI.updatePackage(data.name, { diskGB: data.diskGB, domains: data.domains, emails: data.emails, subdomains: data.subdomains, bandwidthGB: data.bandwidthGB, price: data.price })
+      : PanelAPI.addPackage(data);
+    req.then(done).catch(e => {
+      if (msg) msg.innerHTML = `<span style="color:#c0392b">❌ ${esc(e.message)}</span>`;
+      this.toast('❌ ' + e.message);
+    });
+  },
+
+  /* ======================================================
+   * RESELLERS
+   * ====================================================== */
+
+  /* ---------- Reseller Center ---------- */
+  resellerCenter() {
+    const html = `
+      ${this.renderBreadcrumb('WHM', 'Resellers » Reseller Center')}
+      <div class="subpage-container">
+        ${this.header('🏪 Reseller Center', 'Reseller hesapları, paketleri ve istatistikleri')}
+        <div id="rcBody">${loadingBox('Reseller\'lar yükleniyor…')}</div>
+      </div>`;
+    setTimeout(() => {
+      PanelAPI.getResellers().then(d => {
+        const el = document.getElementById('rcBody');
+        if (!el) return;
+        const totalDisk = d.resellers.reduce((a, r) => a + (r.diskUsed || 0), 0);
+        const cards = d.resellers.map(r => `
+          <div class="x3-form-box" style="margin:0">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <strong style="font-size:15px">${esc(r.username)}</strong>
+              ${r.exists ? '<span class="badge-active">● Aktif</span>' : '<span class="badge-warn">● Yok</span>'}
+            </div>
+            <div style="margin-top:8px;font-size:12px;color:#667">
+              <div>Paket: <span class="badge-active">${esc(r.package)}</span></div>
+              <div style="margin-top:4px">Domain: <strong>${r.domainCount}</strong>${r.packageInfo && r.packageInfo.domains ? ' / ' + r.packageInfo.domains : ''}</div>
+              <div style="margin-top:4px">Disk: <strong>${r.diskUsedH}</strong>${r.packageInfo ? ' / ' + r.packageInfo.diskGB + ' GB' : ''}</div>
+              <div style="margin-top:4px">E-posta: ${esc(r.email || '—')}</div>
+              <div style="margin-top:4px;font-size:11px;color:#889">Oluşturma: ${esc((r.created || '').slice(0, 10))}</div>
+            </div>
+          </div>`).join('');
+        el.innerHTML = `
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
+            ${cards || '<div class="x3-form-box" style="text-align:center;color:#889;padding:24px;grid-column:1/-1">Reseller yok — Create a Reseller ile oluşturun</div>'}
+          </div>
+          <div class="x3-form-box" style="margin-top:12px;padding:12px 16px;font-size:13px;color:#667">
+            📊 Toplam <strong>${d.resellers.length}</strong> reseller · toplam disk kullanımı <strong>${fmtBytes(totalDisk)}</strong>
+          </div>`;
+      }).catch(e => {
+        const el = document.getElementById('rcBody');
+        if (el) el.innerHTML = errBox(e.message);
+      });
+    }, 50);
+    return html;
+  },
+
+  /* ---------- Create a Reseller ---------- */
+  createReseller() {
+    const html = `
+      ${this.renderBreadcrumb('WHM', 'Resellers » Create a Reseller')}
+      <div class="subpage-container">
+        ${this.header('➕ Create a Reseller', 'Yeni reseller hesabı — sistem kullanıcısı olarak oluşturulur')}
+        <div class="x3-form-box">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+            <div><label style="font-size:12px;color:#667">Kullanıcı Adı *</label><input type="text" id="crUser" class="x3-input" placeholder="kucuk-harf"></div>
+            <div><label style="font-size:12px;color:#667">Parola *</label><input type="text" id="crPass" class="x3-input" placeholder="en az 6 karakter"></div>
+            <div><label style="font-size:12px;color:#667">Paket *</label><select id="crPkg" class="x3-input"></select></div>
+            <div><label style="font-size:12px;color:#667">E-posta</label><input type="email" id="crEmail" class="x3-input" placeholder="opsiyonel"></div>
+          </div>
+          <div style="margin-top:14px"><button class="btn-x3-primary" onclick="cPanelSubPages.createResellerSubmit()">➕ Reseller Oluştur</button></div>
+          <div id="crMsg" style="margin-top:10px;font-size:13px"></div>
+        </div>
+      </div>`;
+    setTimeout(() => {
+      PanelAPI.getPackages().then(d => {
+        const sel = document.getElementById('crPkg');
+        if (sel) sel.innerHTML = d.packages.map(p => `<option value="${esc(p.name)}">${esc(p.name)}</option>`).join('');
+      }).catch(() => {});
+    }, 50);
+    return html;
+  },
+
+  createResellerSubmit() {
+    const msg = document.getElementById('crMsg');
+    const data = {
+      username: document.getElementById('crUser').value.trim().toLowerCase(),
+      password: document.getElementById('crPass').value,
+      package: document.getElementById('crPkg').value,
+      email: document.getElementById('crEmail').value.trim()
+    };
+    if (!data.username || !data.password || !data.package) {
+      if (msg) msg.innerHTML = '<span style="color:#c0392b">Kullanıcı adı, parola ve paket zorunludur</span>';
+      return;
+    }
+    PanelAPI.addReseller(data).then(() => {
+      if (msg) msg.innerHTML = `<span style="color:#27ae60">✅ Reseller oluşturuldu: <strong>${esc(data.username)}</strong></span>`;
+      this.toast('✅ Reseller oluşturuldu: ' + data.username);
+      ['crUser', 'crPass', 'crEmail'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    }).catch(e => {
+      if (msg) msg.innerHTML = `<span style="color:#c0392b">❌ ${esc(e.message)}</span>`;
+    });
+  },
+
+  /* ---------- Reseller Modification ---------- */
+  resellerModification() {
+    return this.modifyAccount(); // WHM'de aynı akış — hesap düzenleme
+  },
+
+  /* ---------- Terminate a Reseller ---------- */
+  terminateReseller() {
+    const html = `
+      ${this.renderBreadcrumb('WHM', 'Resellers » Terminate a Reseller')}
+      <div class="subpage-container">
+        ${this.header('🗑 Terminate a Reseller', 'Reseller hesabını sonlandır — tüm veriler silinir')}
+        <div class="x3-form-box" style="margin-bottom:12px">
+          <label style="font-size:12px;color:#667">Reseller Seç</label>
+          <select id="trSel" class="x3-input" style="margin-top:4px"></select>
+        </div>
+        <div class="x3-form-box" style="border-color:#e74c3c">
+          <p style="margin:0 0 10px;font-size:13px;color:#c0392b"><strong>⚠️ Dikkat:</strong> Bu işlem sistem kullanıcısını, ev dizinini ve tüm domain'lerini kalıcı olarak siler.</p>
+          <button class="btn-x3-sm danger" onclick="cPanelSubPages.terminateResellerSubmit()">🗑 Reseller\'ı Sonlandır</button>
+          <div id="trMsg" style="margin-top:8px;font-size:13px"></div>
+        </div>
+      </div>`;
+    setTimeout(() => {
+      PanelAPI.getResellers().then(d => {
+        const sel = document.getElementById('trSel');
+        if (sel) sel.innerHTML = d.resellers.map(r => `<option value="${esc(r.username)}">${esc(r.username)} (${r.domainCount} domain)</option>`).join('');
+      }).catch(() => {});
+    }, 50);
+    return html;
+  },
+
+  terminateResellerSubmit() {
+    const sel = document.getElementById('trSel');
+    const msg = document.getElementById('trMsg');
+    if (!sel || !sel.value) return;
+    const uname = sel.value;
+    if (!confirm(`"${uname}" reseller'ı sonlandırılsın mı? TÜM VERİLER SİLİNECEK!`)) return;
+    PanelAPI.deleteReseller(uname).then(d => {
+      if (msg) msg.innerHTML = `<span style="color:#27ae60">✅ Sonlandırıldı — ${d.removedDomains || 0} domain kaldırıldı</span>`;
+      this.toast('🗑 Reseller sonlandırıldı');
+      setTimeout(() => location.reload(), 1200);
+    }).catch(e => {
+      if (msg) msg.innerHTML = `<span style="color:#c0392b">❌ ${esc(e.message)}</span>`;
+    });
+  },
+
+  /* ======================================================
+   * DNS FUNCTIONS
+   * ====================================================== */
+
+  /* ---------- DNS Zone Manager ---------- */
+  dnsZoneManager() {
+    const html = `
+      ${this.renderBreadcrumb('WHM', 'DNS Functions » DNS Zone Manager')}
+      <div class="subpage-container">
+        ${this.header('🌐 DNS Zone Manager', 'Tüm domain\'lerin DNS kayıtları (A, CNAME, MX, NS, TXT)')}
+        <div id="dzBody">${loadingBox('Zone\'lar yükleniyor…')}</div>
+      </div>`;
+    setTimeout(() => {
+      PanelAPI.getDnsZones().then(d => {
+        const el = document.getElementById('dzBody');
+        if (!el) return;
+        el.innerHTML = `
+          <div class="x3-form-box" style="padding:10px 16px;margin-bottom:10px;font-size:13px;color:#667">
+            Nameserver: <code>${esc(d.nameserver)}</code> · Sunucu IP: <code>${esc(d.ip)}</code> · ${d.zones.length} zone
+          </div>
+          ${d.zones.map(z => `
+            <div class="x3-form-box" style="margin-bottom:12px;padding:0;overflow:hidden">
+              <div style="padding:10px 14px;background:#f8fafc;border-bottom:1px solid #e5e9f0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+                <strong>${esc(z.domain)}</strong>
+                <span style="font-size:11px;color:#889">Serial: ${z.serial}</span>
+              </div>
+              <table style="width:100%;border-collapse:collapse;font-size:12px">
+                <thead><tr style="text-align:left;color:#556;border-bottom:1px solid #eef1f5"><th style="padding:6px 10px">Tip</th><th style="padding:6px 10px">Ad</th><th style="padding:6px 10px">TTL</th><th style="padding:6px 10px">Değer</th><th style="padding:6px 10px;text-align:right">Aksiyon</th></tr></thead>
+                <tbody>${z.records.map(r => `
+                  <tr>
+                    <td style="padding:6px 10px"><span class="badge-active" style="font-size:10px">${esc(r.type)}</span></td>
+                    <td style="padding:6px 10px;font-family:monospace">${esc(r.name)}</td>
+                    <td style="padding:6px 10px;color:#889">${r.ttl}</td>
+                    <td style="padding:6px 10px;font-family:monospace">${esc(r.value)}</td>
+                    <td style="padding:6px 10px;text-align:right">${r.type === 'A' ? `<button class="btn-x3-sm" onclick="cPanelSubPages.editDnsZone('${esc(z.domain)}')">✏️</button>` : ''}</td>
+                  </tr>`).join('')}
+                </tbody>
+              </table>
+            </div>`).join('') || '<div class="x3-form-box" style="text-align:center;color:#889;padding:24px">Zone yok — Add a DNS Zone ile ekleyin</div>'}`;
+      }).catch(e => {
+        const el = document.getElementById('dzBody');
+        if (el) el.innerHTML = errBox(e.message);
+      });
+    }, 50);
+    return html;
+  },
+
+  /* ---------- Add a DNS Zone ---------- */
+  addDnsZone() {
+    const html = `
+      ${this.renderBreadcrumb('WHM', 'DNS Functions » Add a DNS Zone')}
+      <div class="subpage-container">
+        ${this.header('➕ Add a DNS Zone', 'Yeni domain için DNS zone + nginx vhost oluşturun')}
+        <div class="x3-form-box">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+            <div><label style="font-size:12px;color:#667">Domain *</label><input type="text" id="azDomain" class="x3-input" placeholder="ornek.com"></div>
+            <div><label style="font-size:12px;color:#667">Reseller (opsiyonel)</label><select id="azReseller" class="x3-input"><option value="">— yok —</option></select></div>
+            <div><label style="font-size:12px;color:#667">Kök Dizin</label><input type="text" id="azRoot" class="x3-input" placeholder="otomatik"></div>
+          </div>
+          <div style="margin-top:14px"><button class="btn-x3-primary" onclick="cPanelSubPages.addDnsZoneSubmit()">➕ Zone Oluştur</button></div>
+          <div id="azMsg" style="margin-top:10px;font-size:13px"></div>
+        </div>
+      </div>`;
+    setTimeout(() => {
+      PanelAPI.getResellers().then(d => {
+        const sel = document.getElementById('azReseller');
+        if (sel) sel.innerHTML = '<option value="">— yok —</option>' + d.resellers.map(r => `<option value="${esc(r.username)}">${esc(r.username)}</option>`).join('');
+      }).catch(() => {});
+    }, 50);
+    return html;
+  },
+
+  addDnsZoneSubmit() {
+    const msg = document.getElementById('azMsg');
+    const data = {
+      name: document.getElementById('azDomain').value.trim().toLowerCase(),
+      reseller: document.getElementById('azReseller').value,
+      root: document.getElementById('azRoot').value.trim()
+    };
+    if (!data.name) { if (msg) msg.innerHTML = '<span style="color:#c0392b">Domain gerekli</span>'; return; }
+    if (!data.root) delete data.root;
+    PanelAPI.addDomain(data).then(d => {
+      if (msg) msg.innerHTML = `<span style="color:#27ae60">✅ Zone oluşturuldu: <strong>${esc(data.name)}</strong> — A, CNAME, MX, NS, TXT kayıtları hazır${d.nginx === 'reloaded' ? ' (nginx ✓)' : ''}</span>`;
+      this.toast('✅ DNS zone eklendi: ' + data.name);
+      ['azDomain', 'azRoot'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    }).catch(e => {
+      if (msg) msg.innerHTML = `<span style="color:#c0392b">❌ ${esc(e.message)}</span>`;
+    });
+  },
+
+  /* ---------- Edit DNS Zone ---------- */
+  editDnsZone(domain) {
+    if (!domain) {
+      // modül olarak açıldığında: zone seçtir
+      const html = `
+        ${this.renderBreadcrumb('WHM', 'DNS Functions » Edit DNS Zone')}
+        <div class="subpage-container">
+          ${this.header('✏️ Edit DNS Zone', 'A kaydı IP adresini değiştirin (gerçek /etc/hosts güncellemesi)')}
+          <div class="x3-form-box" style="margin-bottom:12px">
+            <label style="font-size:12px;color:#667">Zone Seç</label>
+            <select id="ezSel" class="x3-input" onchange="cPanelSubPages.editDnsZone(this.value)" style="margin-top:4px"></select>
+          </div>
+          <div id="ezBody"></div>
+        </div>`;
+      setTimeout(() => {
+        PanelAPI.getDnsZones().then(d => {
+          const sel = document.getElementById('ezSel');
+          if (sel) sel.innerHTML = d.zones.map(z => `<option value="${esc(z.domain)}">${esc(z.domain)}</option>`).join('');
+        }).catch(() => {});
+      }, 50);
+      return html;
+    }
+    // seçili zone için form
+    const body = document.getElementById('ezBody');
+    const sel = document.getElementById('ezSel');
+    if (sel) sel.value = domain;
+    if (!body) {
+      // doğrudan çağrıldıysa (DNS Zone Manager'dan) — sayfayı değiştir
+      const container = document.getElementById('mainContentArea');
+      if (container) {
+        container.innerHTML = this.editDnsZone();
+        setTimeout(() => {
+          const s2 = document.getElementById('ezSel');
+          if (s2) { s2.value = domain; this.loadEditZone(domain); }
+        }, 300);
+      }
+      return;
+    }
+    this.loadEditZone(domain);
+  },
+
+  loadEditZone(domain) {
+    const body = document.getElementById('ezBody');
+    if (!body || !domain) return;
+    body.innerHTML = loadingBox('Zone okunuyor…');
+    PanelAPI.getDnsZones().then(d => {
+      const z = d.zones.find(x => x.domain === domain);
+      if (!z) { body.innerHTML = errBox('Zone bulunamadı'); return; }
+      const aRec = z.records.find(r => r.type === 'A');
+      body.innerHTML = `
+        <div class="x3-form-box">
+          <h3 style="margin-top:0">Zone: <code>${esc(z.domain)}</code></h3>
+          <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+            <div><label style="font-size:12px;color:#667">A Kaydı (IP Adresi)</label>
+              <input type="text" id="ezIp" class="x3-input" value="${esc(aRec ? aRec.value : d.ip)}" style="width:180px;font-family:monospace"></div>
+            <button class="btn-x3-primary" onclick="cPanelSubPages.editDnsZoneSubmit('${esc(z.domain)}')">💾 Kaydet</button>
+          </div>
+          <div id="ezMsg" style="margin-top:10px;font-size:13px"></div>
+          <div style="margin-top:14px;border-top:1px solid #eef1f5;padding-top:10px">
+            <table style="width:100%;border-collapse:collapse;font-size:12px">
+              <thead><tr style="text-align:left;color:#556"><th style="padding:5px 8px">Tip</th><th style="padding:5px 8px">Ad</th><th style="padding:5px 8px">TTL</th><th style="padding:5px 8px">Değer</th></tr></thead>
+              <tbody>${z.records.map(r => `<tr><td style="padding:5px 8px"><span class="badge-active" style="font-size:10px">${esc(r.type)}</span></td><td style="padding:5px 8px;font-family:monospace">${esc(r.name)}</td><td style="padding:5px 8px;color:#889">${r.ttl}</td><td style="padding:5px 8px;font-family:monospace">${esc(r.value)}</td></tr>`).join('')}</tbody>
+            </table>
+          </div>
+        </div>`;
+    }).catch(e => { body.innerHTML = errBox(e.message); });
+  },
+
+  editDnsZoneSubmit(domain) {
+    const ip = document.getElementById('ezIp').value.trim();
+    const msg = document.getElementById('ezMsg');
+    if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) {
+      if (msg) msg.innerHTML = '<span style="color:#c0392b">Geçersiz IP adresi</span>';
+      return;
+    }
+    PanelAPI.updateDnsZone(domain, ip).then(d => {
+      if (msg) msg.innerHTML = `<span style="color:#27ae60">✅ ${esc(d.output || 'A kaydı güncellendi')}</span>`;
+      this.toast('✅ A kaydı güncellendi: ' + domain + ' → ' + ip);
+      setTimeout(() => this.loadEditZone(domain), 600);
+    }).catch(e => {
+      if (msg) msg.innerHTML = `<span style="color:#c0392b">❌ ${esc(e.message)}</span>`;
+    });
+  }
+});

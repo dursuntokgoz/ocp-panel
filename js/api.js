@@ -102,5 +102,9 @@ const PanelAPI = {
   getDomains() { return this.get('/domains'); },
   addDomain(d) { return this.post('/domains', d); },
   updateDomain(name, data) { return this.request('PUT', '/domains/' + encodeURIComponent(name), data); },
-  deleteDomain(name) { return this.request('DELETE', '/domains/' + encodeURIComponent(name)); }
+  deleteDomain(name) { return this.request('DELETE', '/domains/' + encodeURIComponent(name)); },
+
+  /* --- DNS --- */
+  getDnsZones() { return this.get('/dns-zones'); },
+  updateDnsZone(domain, ip) { return this.request('PUT', '/dns-zones/' + encodeURIComponent(domain), { ip }); }
 };

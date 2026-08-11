@@ -9,19 +9,31 @@ const cPanelApp = {
     {
       id: 'whm', title: 'WHM',
       tools: [
-        { name: 'Domain Manager', icon: 'domains', action: 'domains' },
-        { name: 'Reseller Manager', icon: 'resellers', action: 'resellers' },
-        { name: 'Hosting Packages', icon: 'packages', action: 'packages' },
-      ]
-    },
-    {
-      id: 'system', title: 'System',
-      tools: [
+        /* --- Home --- */
         { name: 'Server Status', icon: 'serverStatus', action: 'serverStatus' },
         { name: 'Services', icon: 'services', action: 'services' },
         { name: 'Network Interfaces', icon: 'network', action: 'network' },
         { name: 'System Users', icon: 'systemUsers', action: 'systemUsers' },
         { name: 'Package Updates', icon: 'updates', action: 'updates' },
+        /* --- Account Functions --- */
+        { name: 'Create a New Account', icon: 'createAccount', action: 'createAccount' },
+        { name: 'List Accounts', icon: 'listAccounts', action: 'listAccounts' },
+        { name: 'Modify an Account', icon: 'modifyAccount', action: 'modifyAccount' },
+        { name: 'Terminate an Account', icon: 'terminateAccount', action: 'terminateAccount' },
+        /* --- Packages --- */
+        { name: 'Add a Package', icon: 'addPackage', action: 'addPackage' },
+        { name: 'Edit a Package', icon: 'editPackage', action: 'editPackage' },
+        { name: 'Delete a Package', icon: 'deletePackage', action: 'deletePackage' },
+        { name: 'List Packages', icon: 'listPackages', action: 'listPackages' },
+        /* --- Resellers --- */
+        { name: 'Reseller Center', icon: 'resellerCenter', action: 'resellerCenter' },
+        { name: 'Create a Reseller', icon: 'createReseller', action: 'createReseller' },
+        { name: 'Reseller Modification', icon: 'resellerModification', action: 'resellerModification' },
+        { name: 'Terminate a Reseller', icon: 'terminateReseller', action: 'terminateReseller' },
+        /* --- DNS Functions --- */
+        { name: 'DNS Zone Manager', icon: 'dnsZoneManager', action: 'dnsZoneManager' },
+        { name: 'Add a DNS Zone', icon: 'addDnsZone', action: 'addDnsZone' },
+        { name: 'Edit DNS Zone', icon: 'editDnsZone', action: 'editDnsZone' },
       ]
     },
     {
