@@ -67,6 +67,8 @@ function run(cmd, timeout = 15000) {
   }
 }
 
+function sudo(cmd, timeout) { return run(`sudo -n ${cmd}`, timeout || 15000); }
+
 function runJson(cmd, timeout = 15000) {
   const r = run(cmd, timeout);
   return r.ok ? { ok: true, data: r.output } : { ok: false, error: r.output.trim() };
@@ -74,9 +76,11 @@ function runJson(cmd, timeout = 15000) {
 
 /* ---------- Route'lar ---------- */
 const api = require('./routes')({ run, runJson, auth, issueToken, sessions, PANEL_PASSWORD });
+const whm = require('./whm')({ run, sudo, auth });
 
 app.use(express.json({ limit: '10mb' }));
 app.use('/api', api);
+app.use('/api', whm);
 
 /* ---------- Statik dosyalar (frontend) ---------- */
 app.use(express.static(ROOT));

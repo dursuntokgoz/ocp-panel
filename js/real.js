@@ -923,3 +923,242 @@ Object.assign(cPanelSubPages, {
     return html;
   }
 });
+
+/* ============================================================
+ * WHM MODÜLLERİ — Domain / Reseller / Paket Yönetimi
+ * ============================================================ */
+Object.assign(cPanelSubPages, {
+
+  /* ---------- Hosting Packages ---------- */
+  packages() {
+    const html = `
+      ${this.renderBreadcrumb('WHM', 'Hosting Packages')}
+      <div class="subpage-container">
+        ${this.header('📦 Hosting Packages', 'Hosting planları oluşturun ve yönetin')}
+        <div class="x3-form-box">
+          <h3 style="margin-top:0">Yeni Paket Oluştur</h3>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
+            <div><label style="font-size:12px;color:#667">Paket Adı *</label><input type="text" id="pkgName" class="x3-input" placeholder="örn: Basic"></div>
+            <div><label style="font-size:12px;color:#667">Disk (GB)</label><input type="number" id="pkgDisk" class="x3-input" value="5" min="0"></div>
+            <div><label style="font-size:12px;color:#667">Domain Sayısı</label><input type="number" id="pkgDomains" class="x3-input" value="3" min="0"></div>
+            <div><label style="font-size:12px;color:#667">E-posta Sayısı</label><input type="number" id="pkgEmails" class="x3-input" value="5" min="0"></div>
+            <div><label style="font-size:12px;color:#667">Bant Genişliği (GB)</label><input type="number" id="pkgBW" class="x3-input" value="10" min="0"></div>
+            <div><label style="font-size:12px;color:#667">Fiyat (₺)</label><input type="number" id="pkgPrice" class="x3-input" value="0" min="0"></div>
+          </div>
+          <div style="margin-top:10px"><button class="btn-x3-primary" onclick="cPanelSubPages.createPackage()">📦 Paket Oluştur</button></div>
+          <div id="pkgMsg" style="margin-top:8px;font-size:13px"></div>
+        </div>
+        <div id="pkgBody" style="margin-top:14px">${loadingBox('Paketler yükleniyor…')}</div>
+      </div>`;
+    setTimeout(() => this.loadPackages(), 50);
+    return html;
+  },
+
+  createPackage() {
+    const pkg = {
+      name: document.getElementById('pkgName').value.trim(),
+      diskGB: +document.getElementById('pkgDisk').value || 0,
+      domains: +document.getElementById('pkgDomains').value || 0,
+      emails: +document.getElementById('pkgEmails').value || 0,
+      bandwidthGB: +document.getElementById('pkgBW').value || 0,
+      price: +document.getElementById('pkgPrice').value || 0
+    };
+    if (!pkg.name) { this.toast('Paket adı gerekli'); return; }
+    PanelAPI.addPackage(pkg).then(() => {
+      this.toast('✅ Paket oluşturuldu: ' + pkg.name);
+      this.loadPackages();
+      ['pkgName'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    }).catch(e => this.toast('❌ ' + e.message));
+  },
+
+  loadPackages() {
+    const body = document.getElementById('pkgBody');
+    if (!body) return;
+    PanelAPI.getPackages().then(d => {
+      body.innerHTML = d.packages.length === 0
+        ? '<div class="x3-form-box" style="text-align:center;color:#889;padding:24px">Henüz paket yok — yukarıdan oluşturun</div>'
+        : `<div class="x3-form-box" style="padding:0;overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead><tr style="text-align:left;border-bottom:2px solid #e5e9f0;color:#556"><th style="padding:10px 8px">Paket</th><th style="padding:10px 8px">Disk</th><th style="padding:10px 8px">Domain</th><th style="padding:10px 8px">E-posta</th><th style="padding:10px 8px">Bant</th><th style="padding:10px 8px">Fiyat</th><th style="padding:10px 8px;text-align:right">Aksiyon</th></tr></thead>
+              <tbody>${d.packages.map(p => `
+                <tr>
+                  <td style="padding:9px 8px"><strong>${esc(p.name)}</strong></td>
+                  <td style="padding:9px 8px">${p.diskGB} GB</td>
+                  <td style="padding:9px 8px">${p.domains || '∞'}</td>
+                  <td style="padding:9px 8px">${p.emails || '∞'}</td>
+                  <td style="padding:9px 8px">${p.bandwidthGB || '∞'} GB</td>
+                  <td style="padding:9px 8px">${p.price > 0 ? p.price + ' ₺' : 'Ücretsiz'}</td>
+                  <td style="padding:9px 8px;text-align:right">
+                    <button class="btn-x3-sm danger" onclick="cPanelSubPages.deletePkg('${esc(p.name)}')">🗑</button>
+                  </td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>`;
+    }).catch(e => { body.innerHTML = errBox(e.message); });
+  },
+
+  deletePkg(name) {
+    if (!confirm(`"${name}" paketi silinsin mi?`)) return;
+    PanelAPI.deletePackage(name).then(() => {
+      this.toast('🗑 Paket silindi');
+      this.loadPackages();
+    }).catch(e => this.toast('❌ ' + e.message));
+  },
+
+  /* ---------- Reseller Manager ---------- */
+  resellers() {
+    const html = `
+      ${this.renderBreadcrumb('WHM', 'Reseller Manager')}
+      <div class="subpage-container">
+        ${this.header('👥 Reseller Manager', 'Hosting reseller kullanıcıları yönetimi')}
+        <div class="x3-form-box">
+          <h3 style="margin-top:0">Yeni Reseller Oluştur</h3>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
+            <div><label style="font-size:12px;color:#667">Kullanıcı Adı *</label><input type="text" id="rUser" class="x3-input" placeholder="örn: ali"></div>
+            <div><label style="font-size:12px;color:#667">Parola *</label><input type="text" id="rPass" class="x3-input" placeholder="en az 6 karakter"></div>
+            <div><label style="font-size:12px;color:#667">Paket *</label><select id="rPkg" class="x3-input"></select></div>
+            <div><label style="font-size:12px;color:#667">E-posta</label><input type="email" id="rEmail" class="x3-input" placeholder="opsiyonel"></div>
+          </div>
+          <div style="margin-top:10px"><button class="btn-x3-primary" onclick="cPanelSubPages.createReseller()">➕ Reseller Oluştur</button></div>
+          <div id="rMsg" style="margin-top:8px;font-size:13px"></div>
+        </div>
+        <div id="rBody" style="margin-top:14px">${loadingBox('Reseller\'lar yükleniyor…')}</div>
+      </div>`;
+    setTimeout(() => this.loadResellers(), 50);
+    return html;
+  },
+
+  loadResellers() {
+    const body = document.getElementById('rBody');
+    const pkgSel = document.getElementById('rPkg');
+    PanelAPI.getPackages().then(d => {
+      if (pkgSel) pkgSel.innerHTML = d.packages.map(p => `<option value="${esc(p.name)}">${esc(p.name)}</option>`).join('') || '<option value="">Paket yok — önce oluşturun</option>';
+    }).catch(() => {});
+    if (!body) return;
+    PanelAPI.getResellers().then(d => {
+      body.innerHTML = d.resellers.length === 0
+        ? '<div class="x3-form-box" style="text-align:center;color:#889;padding:24px">Henüz reseller yok</div>'
+        : `<div class="x3-form-box" style="padding:0;overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead><tr style="text-align:left;border-bottom:2px solid #e5e9f0;color:#556"><th style="padding:10px 8px">Kullanıcı</th><th style="padding:10px 8px">Paket</th><th style="padding:10px 8px">Domain</th><th style="padding:10px 8px">Disk</th><th style="padding:10px 8px">Durum</th><th style="padding:10px 8px;text-align:right">Aksiyon</th></tr></thead>
+              <tbody>${d.resellers.map(r => `
+                <tr>
+                  <td style="padding:9px 8px"><strong>${esc(r.username)}</strong></td>
+                  <td style="padding:9px 8px"><span class="badge-active">${esc(r.package)}</span></td>
+                  <td style="padding:9px 8px">${r.domainCount} ${r.packageInfo && r.packageInfo.domains ? '/ ' + r.packageInfo.domains : ''}</td>
+                  <td style="padding:9px 8px">${r.diskUsedH}</td>
+                  <td style="padding:9px 8px">${r.exists ? '<span class="badge-active">● Aktif</span>' : '<span class="badge-warn">● Sistemde yok</span>'}</td>
+                  <td style="padding:9px 8px;text-align:right">
+                    <button class="btn-x3-sm danger" onclick="cPanelSubPages.deleteReseller('${esc(r.username)}')">🗑</button>
+                  </td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>`;
+    }).catch(e => { body.innerHTML = errBox(e.message); });
+  },
+
+  createReseller() {
+    const u = document.getElementById('rUser').value.trim();
+    const p = document.getElementById('rPass').value;
+    const pkg = document.getElementById('rPkg').value;
+    const em = document.getElementById('rEmail').value.trim();
+    if (!u || !p || !pkg) { this.toast('Kullanıcı adı, parola ve paket zorunludur'); return; }
+    PanelAPI.addReseller({ username: u, password: p, package: pkg, email: em }).then(() => {
+      this.toast('✅ Reseller oluşturuldu: ' + u);
+      this.loadResellers();
+    }).catch(e => this.toast('❌ ' + e.message));
+  },
+
+  deleteReseller(name) {
+    if (!confirm(`"${name}" reseller'ı silinsin mi?\n\n⚠️ Tüm domain'leri ve verileri de silinecektir!`)) return;
+    PanelAPI.deleteReseller(name).then(d => {
+      this.toast('🗑 Silindi — ' + (d.removedDomains || 0) + ' domain kaldırıldı');
+      this.loadResellers();
+    }).catch(e => this.toast('❌ ' + e.message));
+  },
+
+  /* ---------- Domain Manager ---------- */
+  domains() {
+    const html = `
+      ${this.renderBreadcrumb('WHM', 'Domain Manager')}
+      <div class="subpage-container">
+        ${this.header('🌍 Domain Manager', 'Nginx vhost ile gerçek domain yönetimi')}
+        <div class="x3-form-box">
+          <h3 style="margin-top:0">Yeni Domain Ekle</h3>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
+            <div><label style="font-size:12px;color:#667">Domain Adı *</label><input type="text" id="dmName" class="x3-input" placeholder="örn: sitem.com"></div>
+            <div><label style="font-size:12px;color:#667">Reseller</label><select id="dmReseller" class="x3-input"><option value="">— yok —</option></select></div>
+            <div><label style="font-size:12px;color:#667">Kök Dizin</label><input type="text" id="dmRoot" class="x3-input" placeholder="otomatik oluşturulur"></div>
+          </div>
+          <div style="margin-top:10px"><button class="btn-x3-primary" onclick="cPanelSubPages.createDomain()">🌍 Domain Ekle</button></div>
+          <div id="dmMsg" style="margin-top:8px;font-size:13px"></div>
+        </div>
+        <div id="dmBody" style="margin-top:14px">${loadingBox('Domain\'ler yükleniyor…')}</div>
+      </div>`;
+    setTimeout(() => this.loadDomains(), 50);
+    return html;
+  },
+
+  loadDomains() {
+    const body = document.getElementById('dmBody');
+    const resSel = document.getElementById('dmReseller');
+    PanelAPI.getResellers().then(d => {
+      if (resSel) {
+        const existing = resSel.value;
+        resSel.innerHTML = '<option value="">— yok —</option>' + d.resellers.map(r => `<option value="${esc(r.username)}">${esc(r.username)} (${esc(r.package)})</option>`).join('');
+        if (existing) resSel.value = existing;
+      }
+    }).catch(() => {});
+    if (!body) return;
+    PanelAPI.getDomains().then(d => {
+      body.innerHTML = d.domains.length === 0
+        ? '<div class="x3-form-box" style="text-align:center;color:#889;padding:24px">Henüz domain yok</div>'
+        : `<div class="x3-form-box" style="padding:0;overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead><tr style="text-align:left;border-bottom:2px solid #e5e9f0;color:#556"><th style="padding:10px 8px">Domain</th><th style="padding:10px 8px">Reseller</th><th style="padding:10px 8px">Dizin</th><th style="padding:10px 8px">Vhost</th><th style="padding:10px 8px">Disk</th><th style="padding:10px 8px;text-align:right">Aksiyon</th></tr></thead>
+              <tbody>${d.domains.map(dm => `
+                <tr>
+                  <td style="padding:9px 8px"><strong>${esc(dm.name)}</strong></td>
+                  <td style="padding:9px 8px;color:#667">${esc(dm.reseller || '—')}</td>
+                  <td style="padding:9px 8px;font-size:11px;color:#889;font-family:monospace">${esc(dm.root)}</td>
+                  <td style="padding:9px 8px">${dm.vhost ? '<span class="badge-active">● Aktif</span>' : '<span class="badge-warn">● Yok</span>'}</td>
+                  <td style="padding:9px 8px">${dm.diskUsedH}</td>
+                  <td style="padding:9px 8px;text-align:right">
+                    <button class="btn-x3-sm" onclick="cPanelSubPages.visitDomain('${esc(dm.name)}')">🌐</button>
+                    <button class="btn-x3-sm danger" onclick="cPanelSubPages.deleteDomain('${esc(dm.name)}')">🗑</button>
+                  </td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>`;
+    }).catch(e => { body.innerHTML = errBox(e.message); });
+  },
+
+  createDomain() {
+    const name = document.getElementById('dmName').value.trim();
+    const res = document.getElementById('dmReseller').value;
+    const root = document.getElementById('dmRoot').value.trim();
+    if (!name) { this.toast('Domain adı gerekli'); return; }
+    const data = { name };
+    if (res) data.reseller = res;
+    if (root) data.root = root;
+    PanelAPI.addDomain(data).then(d => {
+      this.toast('✅ Domain eklendi: ' + name + (d.nginx === 'reloaded' ? ' (nginx reload ✓)' : ''));
+      this.loadDomains();
+    }).catch(e => this.toast('❌ ' + e.message));
+  },
+
+  deleteDomain(name) {
+    if (!confirm(`"${name}" domain'i silinsin mi?\n\nNginx vhost ve /etc/hosts kaydı da kaldırılacaktır.`)) return;
+    PanelAPI.deleteDomain(name).then(() => {
+      this.toast('🗑 Domain silindi: ' + name);
+      this.loadDomains();
+    }).catch(e => this.toast('❌ ' + e.message));
+  },
+
+  visitDomain(name) {
+    window.open('http://' + name, '_blank');
+  }
+});

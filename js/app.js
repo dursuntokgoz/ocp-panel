@@ -7,6 +7,14 @@ const cPanelApp = {
 
   categories: [
     {
+      id: 'whm', title: 'WHM',
+      tools: [
+        { name: 'Domain Manager', icon: 'domains', action: 'domains' },
+        { name: 'Reseller Manager', icon: 'resellers', action: 'resellers' },
+        { name: 'Hosting Packages', icon: 'packages', action: 'packages' },
+      ]
+    },
+    {
       id: 'system', title: 'System',
       tools: [
         { name: 'Server Status', icon: 'serverStatus', action: 'serverStatus' },

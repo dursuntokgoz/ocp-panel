@@ -20,6 +20,14 @@ Panel, klasik cPanel X3 arayüzünü birebir taklit eder; ancak arkasında **ger
 |---|---|
 | ![File Manager](screenshots/file-manager.png) | ![Services](screenshots/services.png) |
 
+| Domain Manager | Reseller Manager |
+|---|---|
+| ![Domain Manager](screenshots/domain-manager.png) | ![Reseller Manager](screenshots/reseller-manager.png) |
+
+| Hosting Packages |
+|---|
+| ![Hosting Packages](screenshots/hosting-packages.png) |
+
 ---
 
 ## ✨ Özellikler
@@ -47,13 +55,28 @@ Panel, klasik cPanel X3 arayüzünü birebir taklit eder; ancak arkasında **ger
 | `GET /api/disk?path=` | `du` analizi + `df` bölümleri |
 | `GET /api/mysql` | MariaDB durumu + veritabanı listesi |
 | `POST /api/terminal` | Gerçek shell komutu çalıştırma (60s limit) |
+| `GET/POST /api/packages` | Hosting paketleri listele/oluştur |
+| `PUT/DELETE /api/packages/:name` | Paket düzenle/sil |
+| `GET/POST /api/resellers` | Reseller listele/oluştur (sistem kullanıcısı) |
+| `PUT/DELETE /api/resellers/:name` | Reseller düzenle/sil |
+| `GET/POST /api/domains` | Domain listele/ekle (nginx vhost + hosts) |
+| `PUT/DELETE /api/domains/:name` | Domain düzenle/sil |
 
 ### 🖥️ Frontend Modülleri
+- **WHM:** Domain Manager (nginx vhost), Reseller Manager (sistem kullanıcıları), Hosting Packages (kota tanımları)
 - **System:** Server Status, Services (systemd), Network Interfaces, System Users, Package Updates
 - **Gerçek veriyle çalışanlar:** Terminal, File Manager, Process Manager, Cron Jobs, Error Logs, Disk Usage, MySQL, Resource Usage, CPU/Concurrent, Visitors, Bandwidth
 - **Tema korumalı simülasyon modülleri:** Mail, Domains, Security, Software kategorileri (cPanel klonu olarak)
 - Canlı sidebar istatistikleri: disk, RAM, çalışan servis, proses, docker, sıcaklık
 - Arama, kategori aç/kapa, light/dark tema
+
+### 🌍 WHM — Domain / Reseller / Paket Yönetimi
+- **Domain ekleme/silme/düzenleme:** nginx vhost otomatik oluşturulur (`sites-available` + symlink), `/etc/hosts` güncellenir, nginx reload edilir
+- **Reseller oluşturma:** gerçek sistem kullanıcısı (`useradd` + parola), `public_html` dizini, paket atama
+- **Reseller silme:** kullanıcı + ev dizini + tüm domain'leri (vhost + hosts) temizlenir
+- **Hosting paketleri:** disk (GB), domain sayısı, e-posta sayısı, bant genişliği, fiyat
+- **Kota kontrolü:** domain sayısı paket limitini aşınca ekleme reddedilir; disk kullanımı `du` ile canlı izlenir
+- **Veri deposu:** `~/.config/ocp-panel/data.json`
 
 ---
 

@@ -88,5 +88,19 @@ const PanelAPI = {
   users() { return this.get('/users'); },
   disk(path) { return this.get('/disk?path=' + encodeURIComponent(path || '')); },
   mysql() { return this.get('/mysql'); },
-  terminal(cmd, timeout) { return this.post('/terminal', { cmd, timeout: timeout || 15000 }); }
+  terminal(cmd, timeout) { return this.post('/terminal', { cmd, timeout: timeout || 15000 }); },
+
+  /* --- WHM --- */
+  getPackages() { return this.get('/packages'); },
+  addPackage(pkg) { return this.post('/packages', pkg); },
+  updatePackage(name, data) { return this.request('PUT', '/packages/' + encodeURIComponent(name), data); },
+  deletePackage(name) { return this.request('DELETE', '/packages/' + encodeURIComponent(name)); },
+  getResellers() { return this.get('/resellers'); },
+  addReseller(r) { return this.post('/resellers', r); },
+  updateReseller(name, data) { return this.request('PUT', '/resellers/' + encodeURIComponent(name), data); },
+  deleteReseller(name) { return this.request('DELETE', '/resellers/' + encodeURIComponent(name)); },
+  getDomains() { return this.get('/domains'); },
+  addDomain(d) { return this.post('/domains', d); },
+  updateDomain(name, data) { return this.request('PUT', '/domains/' + encodeURIComponent(name), data); },
+  deleteDomain(name) { return this.request('DELETE', '/domains/' + encodeURIComponent(name)); }
 };
