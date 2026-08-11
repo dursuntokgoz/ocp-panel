@@ -32,3 +32,38 @@ const X3Icons = {
   sslStatus: `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><path d="M32 10L14 18V32C14 43 21.6 52.8 32 56C42.4 52.8 50 43 50 32V18L32 10Z" fill="#10b981" stroke="#047857" stroke-width="2"/><rect x="24" y="30" width="16" height="12" rx="2" fill="#ffffff"/><path d="M27 30V25C27 22.2 29.2 20 32 20C34.8 20 37 22.2 37 25V30" stroke="#ffffff" stroke-width="2.5"/></svg>`,
   genericTool: `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="10" width="44" height="44" rx="8" fill="#3b82f6" opacity="0.8"/><circle cx="32" cy="32" r="12" fill="#ffffff"/></svg>`
 };
+
+/* ============================================================
+ * Otomatik ikon üretici — eksik ikonlar için kategori renkli
+ * basit geometrik rozetler. Tool adından türetilir.
+ * ============================================================ */
+(function () {
+  const palette = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#14b8a6'];
+  const shapes = [
+    (c) => `<circle cx="32" cy="32" r="22" fill="${c}"/><circle cx="32" cy="32" r="9" fill="#ffffff"/>`,
+    (c) => `<rect x="10" y="10" width="44" height="44" rx="8" fill="${c}"/><rect x="22" y="22" width="20" height="20" rx="4" fill="#ffffff"/>`,
+    (c) => `<path d="M32 8L56 50H8L32 8Z" fill="${c}"/><circle cx="32" cy="36" r="8" fill="#ffffff"/>`,
+    (c) => `<rect x="12" y="8" width="40" height="48" rx="6" fill="${c}"/><path d="M20 22H44M20 32H44M20 42H36" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>`,
+    (c) => `<circle cx="32" cy="32" r="24" fill="none" stroke="${c}" stroke-width="6"/><path d="M32 20V36L42 42" stroke="${c}" stroke-width="5" stroke-linecap="round"/>`,
+    (c) => `<path d="M12 16H52V48H12Z" fill="${c}"/><circle cx="32" cy="32" r="10" fill="#ffffff"/><path d="M28 28L36 32L28 36" stroke="${c}" stroke-width="3" stroke-linecap="round"/>`,
+  ];
+  const names = Object.keys(X3Icons);
+  const known = new Set(names);
+  let i = 0;
+  // app.js yüklendikten sonra eksikleri doldur — DOMContentLoaded'de çalıştır
+  document.addEventListener('DOMContentLoaded', () => {
+    if (typeof cPanelApp === 'undefined' || !cPanelApp.categories) return;
+    cPanelApp.categories.forEach((cat, ci) => {
+      cat.tools.forEach((tool, ti) => {
+        if (known.has(tool.icon)) return;
+        const color = palette[(ci + ti) % palette.length];
+        const shape = shapes[(ci + ti) % shapes.length];
+        X3Icons[tool.icon] = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">${shape(color)}</svg>`;
+        known.add(tool.icon);
+      });
+    });
+    // Dashboard'ı yeniden render et (ikonlar hazır)
+    if (cPanelApp.activeView === 'dashboard') cPanelApp.renderDashboard();
+    i++;
+  });
+})();

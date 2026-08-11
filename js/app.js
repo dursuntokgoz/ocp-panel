@@ -1,87 +1,146 @@
+/* ============================================================
+ * OCP Panel — Uygulama Kontrolcüsü (cPanel klonu)
+ * Tüm cPanel modülleri: router + kategori + tema + arama
+ * ============================================================ */
 const cPanelApp = {
   activeView: 'dashboard',
 
   categories: [
     {
-      id: 'preferences',
-      title: 'Preferences',
+      id: 'preferences', title: 'Preferences',
       tools: [
         { name: 'Getting Started Wizard', icon: 'gettingStarted', action: 'wizard' },
         { name: 'Video Tutorials', icon: 'videoTutorials', action: 'tutorials' },
-        { name: 'Change Password', icon: 'changePassword', action: 'password' },
-        { name: 'Update Contact Information', icon: 'contactInfo', action: 'contact' },
+        { name: 'Change Password', icon: 'changePassword', action: 'changePassword' },
+        { name: 'Update Contact Information', icon: 'contactInfo', action: 'contactInfo' },
         { name: 'Branding Editor', icon: 'brandingEditor', action: 'branding' },
-        { name: 'Change Style', icon: 'changeStyle', action: 'style' },
-        { name: 'Change Language', icon: 'changeLanguage', action: 'lang' },
-        { name: 'Shortcuts', icon: 'shortcuts', action: 'shortcuts' }
+        { name: 'Change Style', icon: 'changeStyle', action: 'changeStyle' },
+        { name: 'Change Language', icon: 'changeLanguage', action: 'changeLanguage' },
+        { name: 'Shortcuts', icon: 'shortcuts', action: 'shortcuts' },
+        { name: 'User Manager', icon: 'userManager', action: 'userManager' },
+        { name: 'My Account', icon: 'myAccount', action: 'myAccount' },
       ]
     },
     {
-      id: 'mail',
-      title: 'Mail',
+      id: 'mail', title: 'Mail',
       tools: [
         { name: 'Email Accounts', icon: 'emailAccounts', action: 'email' },
         { name: 'Webmail', icon: 'webmail', action: 'webmail' },
         { name: 'BoxTrapper', icon: 'boxTrapper', action: 'boxtrapper' },
-        { name: 'Apache SpamAssassin™', icon: 'spamAssassin', action: 'spam' },
+        { name: 'Apache SpamAssassin', icon: 'spamAssassin', action: 'spamAssassin' },
         { name: 'Forwarders', icon: 'forwarders', action: 'forwarders' },
-        { name: 'Autoresponders', icon: 'autoresponders', action: 'autoresponders' }
+        { name: 'Autoresponders', icon: 'autoresponders', action: 'autoresponders' },
+        { name: 'Mailing Lists', icon: 'mailingLists', action: 'mailingLists' },
+        { name: 'Email Deliverability', icon: 'emailDeliverability', action: 'deliverability' },
+        { name: 'Email Authentication', icon: 'emailAuth', action: 'emailAuth' },
+        { name: 'Email Filters', icon: 'emailFilters', action: 'emailFilters' },
+        { name: 'Global Email Filters', icon: 'globalFilters', action: 'globalFilters' },
+        { name: 'Track Delivery', icon: 'trackDelivery', action: 'trackDelivery' },
+        { name: 'Email Disk Usage', icon: 'emailDiskUsage', action: 'emailDiskUsage' },
+        { name: 'MX Entry', icon: 'mxEntry', action: 'mxEntry' },
+        { name: 'Calendars and Contacts', icon: 'calendars', action: 'calendars' },
+        { name: 'Email Routing', icon: 'emailRouting', action: 'emailRouting' },
       ]
     },
     {
-      id: 'files',
-      title: 'Files',
+      id: 'files', title: 'Files',
       tools: [
-        { name: 'Backups', icon: 'backups', action: 'backups' },
-        { name: 'Backup Wizard', icon: 'backups', action: 'backupWizard' },
         { name: 'File Manager', icon: 'fileManager', action: 'fileManager' },
         { name: 'Legacy File Manager', icon: 'legacyFileManager', action: 'legacyFileManager' },
         { name: 'Disk Space Usage', icon: 'diskSpaceUsage', action: 'diskUsage' },
         { name: 'Web Disk', icon: 'webDisk', action: 'webDisk' },
-        { name: 'FTP Accounts', icon: 'ftpAccounts', action: 'ftp' }
+        { name: 'FTP Accounts', icon: 'ftpAccounts', action: 'ftp' },
+        { name: 'FTP Connections', icon: 'ftpConnections', action: 'ftpConnections' },
+        { name: 'Backups', icon: 'backups', action: 'backups' },
+        { name: 'Backup Wizard', icon: 'backupWizard', action: 'backupWizard' },
+        { name: 'Git Version Control', icon: 'git', action: 'git' },
+        { name: 'Images', icon: 'images', action: 'images' },
+        { name: 'Directory Privacy', icon: 'directoryPrivacy', action: 'directoryPrivacy' },
       ]
     },
     {
-      id: 'logs',
-      title: 'Logs',
+      id: 'logs', title: 'Logs',
       tools: [
         { name: 'Latest Visitors', icon: 'latestVisitors', action: 'visitors' },
         { name: 'Bandwidth', icon: 'bandwidth', action: 'bandwidth' },
-        { name: 'Webalizer', icon: 'webalizer', action: 'webalizer' }
+        { name: 'Webalizer', icon: 'webalizer', action: 'webalizer' },
+        { name: 'Errors', icon: 'errors', action: 'errors' },
+        { name: 'Resource Usage', icon: 'resourceUsage', action: 'resourceUsage' },
+        { name: 'CPU / Concurrent Connections', icon: 'cpuConcurrent', action: 'cpuConcurrent' },
+        { name: 'SQL Error Logs', icon: 'sqlErrors', action: 'sqlErrors' },
+        { name: 'Indexes', icon: 'indexes', action: 'indexes' },
       ]
     },
     {
-      id: 'databases',
-      title: 'Databases',
+      id: 'databases', title: 'Databases',
       tools: [
-        { name: 'MySQL® Databases', icon: 'mysql', action: 'mysql' },
-        { name: 'phpMyAdmin', icon: 'phpMyAdmin', action: 'phpMyAdmin' }
+        { name: 'MySQL Databases', icon: 'mysql', action: 'mysql' },
+        { name: 'MySQL Database Wizard', icon: 'mysqlWizard', action: 'mysqlWizard' },
+        { name: 'phpMyAdmin', icon: 'phpMyAdmin', action: 'phpMyAdmin' },
+        { name: 'Remote MySQL', icon: 'remoteMysql', action: 'remoteMysql' },
+        { name: 'PostgreSQL', icon: 'postgres', action: 'postgres' },
       ]
     },
     {
-      id: 'domains',
-      title: 'Domains',
+      id: 'domains', title: 'Domains',
       tools: [
+        { name: 'Domains', icon: 'domains', action: 'domains' },
         { name: 'Subdomains', icon: 'subdomains', action: 'subdomains' },
         { name: 'Addon Domains', icon: 'addonDomains', action: 'addonDomains' },
+        { name: 'Aliases', icon: 'aliases', action: 'aliases' },
         { name: 'Redirects', icon: 'redirects', action: 'redirects' },
-        { name: 'Zone Editor', icon: 'zoneEditor', action: 'zoneEditor' }
+        { name: 'Zone Editor', icon: 'zoneEditor', action: 'zoneEditor' },
+        { name: 'Dynamic DNS', icon: 'dynamicDns', action: 'dynamicDns' },
       ]
     },
     {
-      id: 'security',
-      title: 'Security',
+      id: 'security', title: 'Security',
       tools: [
-        { name: 'SSH/Terminal Access', icon: 'terminal', action: 'terminal' },
-        { name: 'SSL/TLS Status', icon: 'sslStatus', action: 'ssl' }
+        { name: 'SSH/Terminal Access', icon: 'terminal', action: 'sshAccess' },
+        { name: 'SSL/TLS Status', icon: 'sslStatus', action: 'ssl' },
+        { name: 'SSL/TLS Manager', icon: 'sslManager', action: 'sslManager' },
+        { name: 'SSH Keys', icon: 'sshKeys', action: 'sshKeys' },
+        { name: 'IP Blocker', icon: 'ipBlocker', action: 'ipBlocker' },
+        { name: 'Hotlink Protection', icon: 'hotlink', action: 'hotlink' },
+        { name: 'Leech Protection', icon: 'leech', action: 'leech' },
+        { name: 'ModSecurity', icon: 'modSecurity', action: 'modSecurity' },
+        { name: '2-Factor Authentication', icon: 'twoFactor', action: 'twoFactor' },
+        { name: 'Password Protection', icon: 'passwordProtection', action: 'passwordProtection' },
       ]
-    }
+    },
+    {
+      id: 'software', title: 'Software',
+      tools: [
+        { name: 'Select PHP Version', icon: 'phpVersion', action: 'selectPhp' },
+        { name: 'MultiPHP Manager', icon: 'multiPhp', action: 'multiPhp' },
+        { name: 'MultiPHP INI Editor', icon: 'phpIni', action: 'phpIni' },
+        { name: 'PHP PEAR Packages', icon: 'pear', action: 'pear' },
+        { name: 'RubyGems', icon: 'rubyGems', action: 'rubyGems' },
+        { name: 'Node.js Selector', icon: 'nodejs', action: 'nodejs' },
+        { name: 'Python Selector', icon: 'python', action: 'python' },
+        { name: 'Application Manager', icon: 'appManager', action: 'appManager' },
+        { name: 'Optimize Website', icon: 'optimize', action: 'optimize' },
+      ]
+    },
+    {
+      id: 'advanced', title: 'Advanced',
+      tools: [
+        { name: 'Terminal', icon: 'terminal', action: 'terminal' },
+        { name: 'Cron Jobs', icon: 'cronJobs', action: 'cronJobs' },
+        { name: 'Indexes', icon: 'indexes', action: 'indexes' },
+        { name: 'Error Pages', icon: 'errorPages', action: 'errorPages' },
+        { name: 'MIME Types', icon: 'mimeTypes', action: 'mimeTypes' },
+        { name: 'Apache Handlers', icon: 'apacheHandlers', action: 'apacheHandlers' },
+        { name: 'Process Manager', icon: 'processManager', action: 'processManager' },
+      ]
+    },
   ],
 
   init: function() {
     this.renderDashboard();
     this.setupSearch();
-    console.log('cPanel X3 App Ready');
+    this.updateStats();
+    console.log('OCP Panel Ready — ' + this.categories.reduce((n, c) => n + c.tools.length, 0) + ' modül yüklendi');
   },
 
   renderDashboard: function() {
@@ -131,10 +190,7 @@ const cPanelApp = {
   setupSearch: function() {
     const inp = document.getElementById('findSearchInput');
     if (inp) {
-      inp.addEventListener('input', (e) => {
-        const q = e.target.value.toLowerCase().trim();
-        this.filterTools(q);
-      });
+      inp.addEventListener('input', (e) => this.filterTools(e.target.value.toLowerCase().trim()));
     }
   },
 
@@ -171,47 +227,35 @@ const cPanelApp = {
     if (!container) return;
 
     this.activeView = 'subpage';
-    let subHtml = '';
-
-    switch (action) {
-      case 'fileManager':
-      case 'legacyFileManager':
-        subHtml = X3SubPages.fileManager();
-        break;
-      case 'email':
-      case 'webmail':
-        subHtml = X3SubPages.emailAccounts();
-        break;
-      case 'mysql':
-      case 'phpMyAdmin':
-        subHtml = X3SubPages.mysql();
-        break;
-      case 'subdomains':
-        subHtml = X3SubPages.subdomains();
-        break;
-      default:
-        subHtml = `
-          ${X3SubPages.renderBreadcrumb('Module', action)}
-          <div class="subpage-container">
-            <div class="subpage-header">
-              <h2>${action.toUpperCase()} Module View</h2>
-              <button class="btn-x3" onclick="cPanelApp.showDashboard()">✕ Return to Dashboard</button>
-            </div>
-            <div class="x3-form-box">
-              <p>Simulating cPanel X3 module <strong>${action}</strong>. Complete functional sub-page feature loaded.</p>
-            </div>
-          </div>
-        `;
-        break;
-    }
-
-    container.innerHTML = subHtml;
+    const renderer = cPanelSubPages[action] || cPanelSubPages.generic;
+    container.innerHTML = typeof renderer === 'function'
+      ? renderer.call(cPanelSubPages)
+      : cPanelSubPages.generic(action);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   },
 
   showDashboard: function() {
     this.renderDashboard();
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  },
+
+  /* --- Sidebar istatistikleri --- */
+  updateStats: function() {
+    const set = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = val;
+    };
+    const a = X3Store.getAccount();
+    set('statDisk', X3Store.diskPercent() + '%');
+    set('statBandwidth', X3Store.bandwidthPercent() + '%');
+    set('statEmails', X3Store.list('emails').filter(e => e.status === 'active').length);
+    set('statDbs', X3Store.list('databases').length);
+    set('statSubdomains', X3Store.list('subdomains').length);
+    set('statAddons', X3Store.list('addonDomains').length);
+    const diskBar = document.getElementById('statDiskBar');
+    if (diskBar) diskBar.style.width = X3Store.diskPercent() + '%';
+    const bwBar = document.getElementById('statBwBar');
+    if (bwBar) bwBar.style.width = X3Store.bandwidthPercent() + '%';
   },
 
   changeTheme: function(themeName) {

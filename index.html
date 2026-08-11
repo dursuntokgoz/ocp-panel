@@ -125,28 +125,32 @@
                 <tr>
                   <td class="stats-label" colspan="2">
                     Disk Space Usage
-                    <div class="stats-val" style="float:right;">NA / ∞</div>
-                    <div class="stats-bar-bg"><div class="stats-bar-fill" style="width:0%;"></div></div>
+                    <div class="stats-val" style="float:right;" id="statDisk">NA / ∞</div>
+                    <div class="stats-bar-bg"><div class="stats-bar-fill" id="statDiskBar" style="width:0%;"></div></div>
                   </td>
                 </tr>
                 <tr>
                   <td class="stats-label" colspan="2">
                     Monthly Bandwidth Transfer
-                    <div class="stats-val" style="float:right;">3.6 GB / ∞</div>
-                    <div class="stats-bar-bg"><div class="stats-bar-fill" style="width:12%;"></div></div>
+                    <div class="stats-val" style="float:right;" id="statBandwidth">3.6 GB / ∞</div>
+                    <div class="stats-bar-bg"><div class="stats-bar-fill" id="statBwBar" style="width:12%;"></div></div>
                   </td>
                 </tr>
                 <tr>
                   <td class="stats-label">Email Accounts</td>
-                  <td class="stats-val">8 / ∞</td>
+                  <td class="stats-val" id="statEmails">8 / ∞</td>
                 </tr>
                 <tr>
                   <td class="stats-label">Subdomains</td>
-                  <td class="stats-val">8 / ∞</td>
+                  <td class="stats-val" id="statSubdomains">8 / ∞</td>
                 </tr>
                 <tr>
                   <td class="stats-label">Parked Domains</td>
-                  <td class="stats-val">0 / ∞</td>
+                  <td class="stats-val" id="statAddons">0 / ∞</td>
+                </tr>
+                <tr>
+                  <td class="stats-label">MySQL Databases</td>
+                  <td class="stats-val" id="statDbs">1 / ∞</td>
                 </tr>
                 <tr>
                   <td class="stats-label">Addon Domains</td>
@@ -163,10 +167,6 @@
                 <tr>
                   <td class="stats-label">All SQL Databases</td>
                   <td class="stats-val">5 / ∞</td>
-                </tr>
-                <tr>
-                  <td class="stats-label">MySQL Databases</td>
-                  <td class="stats-val">5</td>
                 </tr>
                 <tr>
                   <td class="stats-label">MySQL Disk Space</td>
@@ -188,6 +188,7 @@
 
   </div>
 
+  <script src="js/store.js"></script>
   <script src="js/icons.js"></script>
   <script src="js/subpages.js"></script>
   <script src="js/app.js"></script>

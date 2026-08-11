@@ -644,6 +644,179 @@ body {
   margin-top: 5px;
 }
 
+/* ============================================================
+ * OCP Panel — Yeni bileşen stilleri (Faz 1+)
+ * ============================================================ */
+
+/* Badge varyantları */
+.badge-active { background: #10b981; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+.badge-warn   { background: #f59e0b; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+.badge-danger { background: #ef4444; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+.badge-info   { background: #3b82f6; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+
+/* Form group */
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-group label { font-size: 12px; font-weight: 600; color: #475569; }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 14px; }
+.x3-input {
+  background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 4px;
+  padding: 8px 12px; font-size: 13px; color: #0f172a; width: 100%;
+}
+.x3-input:focus { outline: 2px solid #3b82f6; border-color: #3b82f6; }
+select.x3-input { width: 100%; }
+
+/* Alt sayfa alt başlık */
+.subpage-subtitle { color: #64748b; font-size: 13px; margin: 4px 0 18px; }
+
+/* Progress lg */
+.x3-progress-lg { height: 22px; margin: 12px 0; }
+
+/* Başarı / hata mesajları */
+.success-msg { color: #059669; font-weight: 600; margin-top: 12px; padding: 8px 12px; background: #ecfdf5; border-radius: 4px; }
+.error-msg { color: #dc2626; font-weight: 600; margin-top: 12px; padding: 8px 12px; background: #fef2f2; border-radius: 4px; }
+
+/* Video grid */
+.video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin: 16px 0; }
+.video-card {
+  display: flex; gap: 12px; align-items: center; padding: 12px;
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer;
+  transition: all .15s;
+}
+.video-card:hover { border-color: #3b82f6; box-shadow: 0 4px 12px rgba(59,130,246,.15); transform: translateY(-1px); }
+.video-thumb {
+  width: 56px; height: 40px; border-radius: 4px; background: #1e293b; color: white;
+  display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;
+}
+.video-info { display: flex; flex-direction: column; gap: 2px; }
+.video-info strong { font-size: 13px; color: #0f172a; }
+.video-info span { font-size: 11px; color: #64748b; }
+
+/* Şifre gücü */
+.pw-strength { padding: 8px 12px; background: #f1f5f9; border-radius: 4px; font-size: 12px; color: #64748b; min-height: 36px; display: flex; align-items: center; }
+
+/* Tema seçici */
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin: 16px 0; }
+.theme-card {
+  padding: 12px; background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 8px;
+  cursor: pointer; text-align: center; transition: all .15s;
+}
+.theme-card:hover { border-color: #3b82f6; }
+.theme-card strong { font-size: 12px; color: #0f172a; display: block; margin-top: 8px; }
+.theme-preview { height: 70px; border-radius: 4px; border: 1px solid #cbd5e1; }
+.theme-light-prev { background: linear-gradient(#e2e8f0 0 25%, #f8fafc 25% 100%); }
+.theme-dark-prev { background: linear-gradient(#1e293b 0 25%, #0f172a 25% 100%); }
+.theme-x2-prev { background: linear-gradient(#94a3b8 0 25%, #cbd5e1 25% 100%); }
+.theme-paper-prev { background: linear-gradient(#0284c7 0 25%, #f8fafc 25% 100%); }
+
+/* Dil seçici */
+.lang-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.lang-item {
+  display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+  border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; font-size: 13px;
+}
+.lang-item:hover { border-color: #3b82f6; background: #eff6ff; }
+
+/* Kısayollar */
+.shortcut-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin: 16px 0; }
+.shortcut-item {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; font-size: 12px;
+  transition: all .15s;
+}
+.shortcut-item:hover { border-color: #3b82f6; background: #eff6ff; }
+.x3-tool-icon-sm { width: 28px; height: 28px; }
+.x3-tool-icon-sm svg { width: 28px; height: 28px; }
+
+/* Sihirbaz adımları */
+.wizard-steps { display: flex; gap: 8px; margin: 14px 0 20px; flex-wrap: wrap; }
+.wizard-step {
+  padding: 6px 14px; background: #e2e8f0; color: #64748b; border-radius: 16px; font-size: 12px; font-weight: 600;
+}
+.wizard-step.active { background: #3b82f6; color: white; }
+.wizard-progress { margin: 14px 0; }
+
+/* İstatistik kartları */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin: 16px 0; }
+.stat-card {
+  padding: 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+  display: flex; flex-direction: column; gap: 4px; text-align: center;
+}
+.stat-card strong { font-size: 22px; color: #1d4ed8; }
+.stat-card span { font-size: 12px; color: #64748b; }
+
+/* phpMyAdmin shell */
+.pma-shell { border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; margin: 16px 0; }
+.pma-nav {
+  background: #0f172a; color: white; padding: 8px 14px; font-size: 12px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.pma-body { display: grid; grid-template-columns: 200px 1fr; min-height: 280px; }
+.pma-sidebar { background: #f1f5f9; border-right: 1px solid #e2e8f0; padding: 10px; }
+.pma-db-item { padding: 8px 10px; border-radius: 4px; cursor: pointer; font-size: 13px; margin-bottom: 4px; }
+.pma-db-item:hover { background: #dbeafe; }
+.pma-main { padding: 18px; }
+
+/* Terminal */
+.terminal-shell { border-radius: 8px; overflow: hidden; border: 1px solid #1e293b; }
+.terminal-bar { background: #1e293b; color: #94a3b8; padding: 8px 14px; font-size: 12px; }
+.terminal-body {
+  background: #0f172a; color: #a5f3fc; font-family: 'Courier New', monospace;
+  padding: 14px; min-height: 220px; font-size: 13px; overflow-y: auto; max-height: 320px;
+}
+.terminal-body p { margin: 0 0 4px; }
+.term-prompt { color: #4ade80; font-weight: bold; }
+.term-line { white-space: pre-wrap; word-break: break-all; }
+
+/* PHP sürüm kartları */
+.php-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin: 16px 0; }
+.php-version-card {
+  padding: 16px; border: 2px solid #e2e8f0; border-radius: 8px; text-align: center;
+  cursor: pointer; transition: all .15s; background: #f8fafc;
+}
+.php-version-card:hover { border-color: #3b82f6; }
+.php-version-card.selected { border-color: #10b981; background: #ecfdf5; }
+.php-version-card strong { display: block; font-size: 16px; color: #0f172a; }
+.php-version-card span { font-size: 11px; color: #64748b; }
+
+/* Teslim edilebilirlik skoru */
+.deliverability-score {
+  display: flex; gap: 20px; align-items: center; padding: 20px;
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; margin: 16px 0;
+}
+.score-circle {
+  width: 90px; height: 90px; border-radius: 50%; background: #10b981; color: white;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-size: 28px; font-weight: 700; flex-shrink: 0;
+}
+.score-circle span { font-size: 12px; font-weight: 400; }
+
+/* DNS kodu */
+.dns-code {
+  display: block; background: #0f172a; color: #a5f3fc; padding: 10px 14px;
+  border-radius: 6px; font-family: 'Courier New', monospace; font-size: 12px;
+  margin: 8px 0; word-break: break-all;
+}
+
+/* Switch satırı */
+.switch-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; font-size: 13px; cursor: pointer; }
+.switch-row input { width: 18px; height: 18px; }
+
+/* QR simülasyonu */
+.qr-sim {
+  display: inline-block; background: white; border: 1px solid #cbd5e1; padding: 10px;
+  font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.1; margin: 8px 0;
+}
+
+/* Grafik barları (CPU) */
+.chart-bars {
+  display: flex; align-items: flex-end; gap: 4px; height: 120px;
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; margin: 10px 0;
+}
+.chart-bars::before { content: ''; }
+
+/* Kategori ikon boyutu */
+.x3-tool-icon svg { width: 48px; height: 48px; }
+
 @media (max-width: 850px) {
   .x3-frame {
     margin: 0;
