@@ -1,116 +1,32 @@
-# OCP Panel — cPanel Klonu ROADMAP
+# OCP Panel — ROADMAP
 
-**Amaç:** cPanel'in TÜM fonksiyonlarını içeren, ocp-panel temasını referans alan tam bir kontrol paneli klonu.
-**Mimari:** Statik HTML/CSS/JS (mevcut yapı korunur) — tüm veriler localStorage'da simüle edilir.
+## ✅ Tamamlanan (v2.0 — Gerçek Sunucu Kontrol Paneli)
 
-## Kategori Kapsamı (cPanel tam listesi)
+### Backend (Node.js/Express, port 2083)
+- [x] Token tabanlı kimlik doğrulama (24 saat oturum, parola: `~/.config/ocp-panel/password`)
+- [x] `/api/stats` — CPU, RAM, disk, sıcaklık, uptime, load, servis/proses/docker sayıları
+- [x] `/api/services` — systemd servis listesi + start/stop/restart/enable/disable (sudo)
+- [x] `/api/processes` — ps listesi + kill
+- [x] `/api/files` — dizin listeleme, dosya okuma/yazma, mkdir, silme, yeniden adlandırma
+- [x] `/api/logs` — journalctl (servis bazlı) + dosya kuyruğu
+- [x] `/api/cron` — gerçek crontab okuma/yazma
+- [x] `/api/network` — ağ arayüzleri, dinleyen portlar, yönlendirme tablosu
+- [x] `/api/users` — sistem kullanıcıları + aktif oturumlar
+- [x] `/api/disk` — du analizi + df bölümleri
+- [x] `/api/mysql` — MariaDB durumu/veritabanları
+- [x] `/api/terminal` — gerçek shell komutu çalıştırma (60s limit)
+- [x] systemd servisi (`ocp-panel.service`, açılışta otomatik başlar)
 
-### Preferences
-- [x] Getting Started Wizard
-- [x] Video Tutorials
-- [x] Change Password
-- [x] Update Contact Information
-- [x] Branding Editor
-- [x] Change Style
-- [x] Change Language
-- [x] Shortcuts
-- [ ] User Manager (YENİ)
-- [ ] My Account (YENİ)
+### Frontend (cPanel X3 teması korunarak)
+- [x] Login ekranı (overlay)
+- [x] **System kategorisi**: Server Status, Services, Network Interfaces, System Users, Package Updates
+- [x] **Gerçek modüller**: Terminal, File Manager, Cron Jobs, Process Manager, Error Logs, Disk Usage, MySQL, Resource Usage, CPU/Concurrent, Visitors, Bandwidth
+- [x] Sidebar istatistikleri gerçek veriler (disk, RAM, servis, proses, docker, sıcaklık)
 
-### Mail
-- [x] Email Accounts (kısmi — genişletilecek)
-- [ ] Webmail
-- [ ] BoxTrapper
-- [ ] Apache SpamAssassin
-- [ ] Forwarders
-- [ ] Autoresponders
-- [ ] Mailing Lists
-- [ ] Email Deliverability
-- [ ] Email Authentication (SPF/DKIM)
-- [ ] Email Filters
-- [ ] Global Email Filters
-- [ ] Track Delivery
-- [ ] Email Disk Usage
-- [ ] MX Entry
-- [ ] Calendars and Contacts
-- [ ] Email Routing
-
-### Files
-- [x] File Manager (kısmi — genişletilecek)
-- [ ] Legacy File Manager
-- [x] Disk Space Usage (placeholder)
-- [ ] Web Disk
-- [x] FTP Accounts (kısmi)
-- [ ] FTP Connections
-- [ ] Backups
-- [ ] Backup Wizard
-- [ ] Git Version Control
-- [ ] Images
-- [ ] Directory Privacy
-
-### Logs
-- [ ] Latest Visitors
-- [ ] Bandwidth
-- [ ] Webalizer
-- [ ] Errors
-- [ ] Resource Usage
-- [ ] CPU / Concurrent Connections
-- [ ] SQL Error Logs
-- [ ] Indexes
-
-### Databases
-- [x] MySQL Databases (kısmi)
-- [ ] MySQL Database Wizard
-- [ ] phpMyAdmin (placeholder)
-- [ ] Remote MySQL
-- [ ] PostgreSQL
-
-### Domains
-- [x] Subdomains (kısmi)
-- [ ] Addon Domains
-- [ ] Aliases
-- [ ] Redirects
-- [ ] Zone Editor (DNS)
-- [ ] Dynamic DNS
-- [ ] Domains
-
-### Security
-- [ ] SSH/Terminal Access
-- [ ] SSL/TLS Status
-- [ ] SSL/TLS Manager
-- [ ] SSH Keys
-- [ ] IP Blocker
-- [ ] Hotlink Protection
-- [ ] Leech Protection
-- [ ] ModSecurity
-- [ ] 2-Factor Authentication
-- [ ] Password Protection
-
-### Software
-- [ ] Select PHP Version
-- [ ] MultiPHP Manager
-- [ ] MultiPHP INI Editor
-- [ ] PHP PEAR Packages
-- [ ] RubyGems
-- [ ] Node.js Selector
-- [ ] Python Selector
-- [ ] Application Manager
-- [ ] Optimize Website
-
-### Advanced
-- [ ] Terminal
-- [ ] Cron Jobs
-- [ ] Indexes
-- [ ] Error Pages
-- [ ] MIME Types
-- [ ] Apache Handlers
-- [ ] Process Manager
-
-## Fazlar
-
-- **Faz 1:** Mimari — tüm kategorileri + tool'ları app.js'e ekle, localStorage tabanlı simülasyon motoru (store.js), tüm tool'lar için render altyapısı
-- **Faz 2:** Preferences + Mail modülleri tam
-- **Faz 3:** Files + Logs modülleri tam
-- **Faz 4:** Databases + Domains modülleri tam
-- **Faz 5:** Security + Software + Advanced modülleri tam
-- **Faz 6:** Responsive + genel polish + son commit
+## 🔜 Gelecek
+- [ ] Gerçek zamanlı izleme (SSE/WebSocket ile CPU/RAM grafikleri)
+- [ ] PHP/nginx site yönetimi (vhost oluşturma)
+- [ ] Docker yönetimi (konteyner başlat/durdur/log)
+- [ ] Yedekleme otomasyonu (panel üzerinden)
+- [ ] Çok kullanıcılı yetkilendirme (rol bazlı)
+- [ ] HTTPS (self-signed sertifika ile 2083'te SSL)

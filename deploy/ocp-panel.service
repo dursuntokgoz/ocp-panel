@@ -1,0 +1,15 @@
+[Unit]
+Description=OCP Panel — Gerçek Sunucu Kontrol Paneli
+After=network.target
+
+[Service]
+Type=simple
+User=dursun
+WorkingDirectory=/home/dursun/ocp-panel
+ExecStart=/usr/bin/node /home/dursun/ocp-panel/server/server.js
+Restart=on-failure
+RestartSec=3
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

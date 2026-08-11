@@ -1,0 +1,13 @@
+{
+  "name": "ocp-panel",
+  "version": "2.0.0",
+  "description": "OCP Panel — Gerçek sunucu kontrol paneli (cPanel X3 teması)",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node --watch server/server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

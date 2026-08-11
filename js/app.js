@@ -7,6 +7,16 @@ const cPanelApp = {
 
   categories: [
     {
+      id: 'system', title: 'System',
+      tools: [
+        { name: 'Server Status', icon: 'serverStatus', action: 'serverStatus' },
+        { name: 'Services', icon: 'services', action: 'services' },
+        { name: 'Network Interfaces', icon: 'network', action: 'network' },
+        { name: 'System Users', icon: 'systemUsers', action: 'systemUsers' },
+        { name: 'Package Updates', icon: 'updates', action: 'updates' },
+      ]
+    },
+    {
       id: 'preferences', title: 'Preferences',
       tools: [
         { name: 'Getting Started Wizard', icon: 'gettingStarted', action: 'wizard' },
@@ -137,6 +147,11 @@ const cPanelApp = {
   ],
 
   init: function() {
+    PanelAPI.init();
+    if (!PanelAPI.isAuthed) {
+      PanelAuth.show();
+      return;
+    }
     this.renderDashboard();
     this.setupSearch();
     this.updateStats();
@@ -239,23 +254,26 @@ const cPanelApp = {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   },
 
-  /* --- Sidebar istatistikleri --- */
+  /* --- Sidebar istatistikleri (GERÇEK sistem verileri) --- */
   updateStats: function() {
     const set = (id, val) => {
       const el = document.getElementById(id);
       if (el) el.textContent = val;
     };
-    const a = X3Store.getAccount();
-    set('statDisk', X3Store.diskPercent() + '%');
-    set('statBandwidth', X3Store.bandwidthPercent() + '%');
-    set('statEmails', X3Store.list('emails').filter(e => e.status === 'active').length);
-    set('statDbs', X3Store.list('databases').length);
-    set('statSubdomains', X3Store.list('subdomains').length);
-    set('statAddons', X3Store.list('addonDomains').length);
-    const diskBar = document.getElementById('statDiskBar');
-    if (diskBar) diskBar.style.width = X3Store.diskPercent() + '%';
-    const bwBar = document.getElementById('statBwBar');
-    if (bwBar) bwBar.style.width = X3Store.bandwidthPercent() + '%';
+    const setBar = (id, pct) => {
+      const el = document.getElementById(id);
+      if (el) el.style.width = Math.min(pct, 100) + '%';
+    };
+    PanelAPI.stats().then(s => {
+      set('statDisk', (s.disk.pct || 0) + '%');
+      set('statBandwidth', (s.memory.pct || 0) + '%');
+      set('statEmails', s.services || 0);
+      set('statSubdomains', s.processes || 0);
+      set('statAddons', s.docker || 0);
+      set('statDbs', s.temp != null ? s.temp + '°C' : '—');
+      setBar('statDiskBar', s.disk.pct || 0);
+      setBar('statBwBar', s.memory.pct || 0);
+    }).catch(() => {});
   },
 
   changeTheme: function(themeName) {
@@ -280,6 +298,56 @@ const cPanelApp = {
     t.textContent = msg;
     box.appendChild(t);
     setTimeout(() => t.remove(), 3000);
+  }
+};
+
+/* ============================================================
+ * PanelAuth — Login yönetimi
+ * ============================================================ */
+const PanelAuth = {
+  show() {
+    const ov = document.getElementById('loginOverlay');
+    if (!ov) return;
+    ov.style.display = 'flex';
+    const host = document.getElementById('loginHost');
+    if (host) host.textContent = window.location.hostname;
+    setTimeout(() => {
+      const inp = document.getElementById('loginPass');
+      if (inp) inp.focus();
+    }, 100);
+  },
+
+  hide() {
+    const ov = document.getElementById('loginOverlay');
+    if (ov) ov.style.display = 'none';
+  },
+
+  async login() {
+    const inp = document.getElementById('loginPass');
+    const err = document.getElementById('loginErr');
+    const btn = document.getElementById('loginBtn');
+    const pw = inp ? inp.value : '';
+    if (!pw) return;
+    if (btn) { btn.disabled = true; btn.textContent = 'Kontrol ediliyor…'; }
+    if (err) err.textContent = '';
+    try {
+      await PanelAPI.login(pw);
+      this.hide();
+      cPanelApp.renderDashboard();
+      cPanelApp.setupSearch();
+      cPanelApp.updateStats();
+      if (inp) inp.value = '';
+    } catch (e) {
+      if (err) err.textContent = '❌ ' + e.message;
+      if (inp) { inp.value = ''; inp.focus(); }
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Giriş Yap'; }
+    }
+  },
+
+  async logout() {
+    await PanelAPI.logout();
+    location.reload();
   }
 };
 

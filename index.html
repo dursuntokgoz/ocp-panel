@@ -125,32 +125,32 @@
                 <tr>
                   <td class="stats-label" colspan="2">
                     Disk Space Usage
-                    <div class="stats-val" style="float:right;" id="statDisk">NA / ∞</div>
+                    <div class="stats-val" style="float:right;" id="statDisk">…</div>
                     <div class="stats-bar-bg"><div class="stats-bar-fill" id="statDiskBar" style="width:0%;"></div></div>
                   </td>
                 </tr>
                 <tr>
                   <td class="stats-label" colspan="2">
-                    Monthly Bandwidth Transfer
-                    <div class="stats-val" style="float:right;" id="statBandwidth">3.6 GB / ∞</div>
-                    <div class="stats-bar-bg"><div class="stats-bar-fill" id="statBwBar" style="width:12%;"></div></div>
+                    Memory Usage
+                    <div class="stats-val" style="float:right;" id="statBandwidth">…</div>
+                    <div class="stats-bar-bg"><div class="stats-bar-fill" id="statBwBar" style="width:0%;"></div></div>
                   </td>
                 </tr>
                 <tr>
-                  <td class="stats-label">Email Accounts</td>
-                  <td class="stats-val" id="statEmails">8 / ∞</td>
+                  <td class="stats-label">Running Services</td>
+                  <td class="stats-val" id="statEmails">…</td>
                 </tr>
                 <tr>
-                  <td class="stats-label">Subdomains</td>
-                  <td class="stats-val" id="statSubdomains">8 / ∞</td>
+                  <td class="stats-label">Processes</td>
+                  <td class="stats-val" id="statSubdomains">…</td>
                 </tr>
                 <tr>
-                  <td class="stats-label">Parked Domains</td>
-                  <td class="stats-val" id="statAddons">0 / ∞</td>
+                  <td class="stats-label">Docker Containers</td>
+                  <td class="stats-val" id="statAddons">…</td>
                 </tr>
                 <tr>
-                  <td class="stats-label">MySQL Databases</td>
-                  <td class="stats-val" id="statDbs">1 / ∞</td>
+                  <td class="stats-label">CPU Temperature</td>
+                  <td class="stats-val" id="statDbs">…</td>
                 </tr>
                 <tr>
                   <td class="stats-label">Addon Domains</td>
@@ -189,8 +189,22 @@
   </div>
 
   <script src="js/store.js"></script>
+  <script src="js/api.js"></script>
   <script src="js/icons.js"></script>
   <script src="js/subpages.js"></script>
+  <script src="js/real.js"></script>
   <script src="js/app.js"></script>
+
+  <!-- Login Overlay -->
+  <div id="loginOverlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(10,15,30,.92);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:12px;padding:40px 44px;width:380px;max-width:92vw;box-shadow:0 24px 80px rgba(0,0,0,.5);text-align:center">
+      <div style="font-size:44px;margin-bottom:8px">🖥️</div>
+      <h2 style="margin:0 0 4px;color:#1a2233;font-size:22px">OCP Panel</h2>
+      <p style="margin:0 0 24px;color:#667;font-size:13px">Gerçek Sunucu Kontrol Paneli · <span id="loginHost" style="font-weight:600;color:#333"></span></p>
+      <input type="password" id="loginPass" placeholder="Panel parolası" style="width:100%;padding:12px 14px;border:2px solid #dde3ec;border-radius:8px;font-size:15px;outline:none;box-sizing:border-box" onkeydown="if(event.key==='Enter')PanelAuth.login()">
+      <button id="loginBtn" onclick="PanelAuth.login()" style="width:100%;margin-top:14px;padding:12px;background:#e8740c;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer">Giriş Yap</button>
+      <div id="loginErr" style="color:#d33;font-size:13px;margin-top:12px;min-height:18px"></div>
+    </div>
+  </div>
 </body>
 </html>
