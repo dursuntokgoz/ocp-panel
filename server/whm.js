@@ -181,6 +181,20 @@ server {
   });
 
   /* ==========================================================
+   * DOMAIN SWITCH — domain bağlamı değiştir (reseller içinde)
+   * ========================================================== */
+  router.get('/domains/switch/:domain', auth, (req, res) => {
+    const domain = req.params.domain.toLowerCase();
+    const db = loadDB();
+    const dom = db.domains.find(d => d.name === domain);
+    if (!dom) return res.status(404).json({ error: 'Domain bulunamadı: ' + domain });
+    // Bu domain'in email/ftp sayılarını döndür
+    const emailCount = (db.emails || []).filter(e => e.domain === domain).length;
+    const ftpCount = (db.ftp || []).filter(f => f.domain === domain).length;
+    res.json({ ok: true, domain: { ...dom, emailCount, ftpCount } });
+  });
+
+  /* ==========================================================
    * RESELLER'LAR (sistem kullanıcıları)
    * ========================================================== */
   router.get('/resellers', auth, (req, res) => {

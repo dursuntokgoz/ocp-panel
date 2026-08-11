@@ -313,8 +313,8 @@ const cPanelSubPages = {
   /* --- User Manager --- */
   userManager() {
     const users = [
-      { id: 1, name: 'adamowen', type: 'cPanel', priv: 'Tam Erişim', status: 'active' },
-      { id: 2, name: 'adamowen_db', type: 'MySQL', priv: 'DB Yönetimi', status: 'active' },
+      { id: 1, name: 'dursun', type: 'cPanel', priv: 'Tam Erişim', status: 'active' },
+      { id: 2, name: 'dursun_db', type: 'MySQL', priv: 'DB Yönetimi', status: 'active' },
       { id: 3, name: 'ftpuser1', type: 'FTP', priv: 'public_html', status: 'active' },
       { id: 4, name: 'misafir', type: 'cPanel', priv: 'Kısıtlı', status: 'suspended' },
     ];
@@ -839,9 +839,9 @@ const cPanelSubPages = {
   /* --- Track Delivery --- */
   trackDelivery() {
     const logs = [
-      { id: 1, to: 'adam@adamowen.co.uk', from: 'info@adamowen.co.uk', date: '2024-04-01 14:30', status: 'delivered' },
-      { id: 2, to: 'destek@ornek.com', from: 'adam@adamowen.co.uk', date: '2024-04-01 13:12', status: 'pending' },
-      { id: 3, to: 'spam@ornek.net', from: 'adam@adamowen.co.uk', date: '2024-03-31 18:44', status: 'failed' },
+      { id: 1, to: 'adam@dursun.co.uk', from: 'info@dursun.co.uk', date: '2024-04-01 14:30', status: 'delivered' },
+      { id: 2, to: 'destek@ornek.com', from: 'adam@dursun.co.uk', date: '2024-04-01 13:12', status: 'pending' },
+      { id: 3, to: 'spam@ornek.net', from: 'adam@dursun.co.uk', date: '2024-03-31 18:44', status: 'failed' },
     ];
     const rows = logs.map(l => `
       <tr>
@@ -1147,7 +1147,7 @@ const cPanelSubPages = {
   ftpConnections() {
     const conns = [
       { ip: '78.176.55.201', user: 'ftpuser1', time: '14:22:10', files: 12, status: 'connected' },
-      { ip: '88.241.90.14', user: 'adamowen', time: '13:58:44', files: 3, status: 'connected' },
+      { ip: '88.241.90.14', user: 'dursun', time: '13:58:44', files: 3, status: 'connected' },
     ];
     const rows = conns.map(c => `
       <tr>
@@ -1226,7 +1226,7 @@ const cPanelSubPages = {
   /* --- Git Version Control --- */
   git() {
     const repos = [
-      { name: 'adamowen-site', branch: 'main', commit: 'a3f9c21', status: 'uptodate' },
+      { name: 'dursun-site', branch: 'main', commit: 'a3f9c21', status: 'uptodate' },
       { name: 'blog-theme', branch: 'main', commit: '8d02be4', status: 'behind' },
     ];
     const rows = repos.map(r => `
@@ -1605,8 +1605,8 @@ const cPanelSubPages = {
           </div>
           <div class="pma-body">
             <div class="pma-sidebar">
-              <div class="pma-db-item" onclick="cPanelApp.showToast('Veritabanı açıldı')">📊 adamowen_blog</div>
-              <div class="pma-db-item" onclick="cPanelApp.showToast('Veritabanı açıldı')">📊 adamowen_portal</div>
+              <div class="pma-db-item" onclick="cPanelApp.showToast('Veritabanı açıldı')">📊 dursun_blog</div>
+              <div class="pma-db-item" onclick="cPanelApp.showToast('Veritabanı açıldı')">📊 dursun_portal</div>
               <div class="pma-db-item" onclick="cPanelApp.showToast('Yeni veritabanı')">➕ Yeni...</div>
             </div>
             <div class="pma-main">
@@ -1962,7 +1962,7 @@ const cPanelSubPages = {
           <table class="x3-data-table">
             <thead><tr><th>Host</th><th>Token</th><th>Durum</th></tr></thead>
             <tbody>
-              <tr><td><code>ev.adamowen.co.uk</code></td><td><code>••••a3f9</code></td><td><span class="badge-active">Aktif</span></td></tr>
+              <tr><td><code>ev.dursun.co.uk</code></td><td><code>••••a3f9</code></td><td><span class="badge-active">Aktif</span></td></tr>
             </tbody>
           </table>
           <button class="btn-x3-primary" style="margin-top:15px" onclick="cPanelApp.showToast('Dynamic DNS hesabı oluşturuldu')">+ Create Dynamic DNS</button>
