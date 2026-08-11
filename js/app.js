@@ -188,6 +188,7 @@ const cPanelApp = {
     this.renderDashboard();
     this.setupSearch();
     this.updateStats();
+    this.loadSwitchAccount();
     console.log('OCP Panel Ready — ' + this.categories.reduce((n, c) => n + c.tools.length, 0) + ' modül yüklendi');
   },
 
@@ -310,6 +311,24 @@ const cPanelApp = {
       setBar('statDiskBar', s.disk.pct || 0);
       setBar('statBwBar', s.memory.pct || 0);
     }).catch(() => {});
+  },
+
+  /* --- Switch Account dropdown (reseller/domain) --- */
+  loadSwitchAccount: function() {
+    const select = document.getElementById('switchAccountSelect');
+    if (!select) return;
+    PanelAPI.getResellers().then(d => {
+      if (!d.resellers || !d.resellers.length) {
+        select.innerHTML = '<option value="">Reseller yok</option>';
+        return;
+      }
+      select.innerHTML = d.resellers.map(r => {
+        const label = r.username + (r.package ? ' (' + r.package + ')' : '');
+        return `<option value="${r.username}">${label}</option>`;
+      }).join('');
+    }).catch(() => {
+      select.innerHTML = '<option value="">Yüklenemedi</option>';
+    });
   },
 
   changeTheme: function(themeName) {
