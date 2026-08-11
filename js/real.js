@@ -1862,5 +1862,302 @@ Object.assign(cPanelSubPages, {
     }).catch(e => {
       if (msg) msg.innerHTML = `<span style="color:#c0392b">❌ ${esc(e.message)}</span>`;
     });
+  },
+
+  /* ==========================================================
+   * WHM — EMAIL FUNCTIONS (gerçek postfix + dovecot)
+   * ========================================================== */
+
+  /* ---------- Email Accounts ---------- */
+  whmEmails() {
+    const html = `
+      ${this.renderBreadcrumb('WHM', 'Email Functions » Email Accounts')}
+      <div class="subpage-container">
+        ${this.header('📧 Email Accounts', 'Tüm sanal e-posta hesapları — postfix + dovecot (maildir)')}
+        <div class="x3-form-box" style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <select id="weDomain" class="x3-input" style="width:200px" onchange="cPanelSubPages.loadWhmEmails()"></select>
+          <button class="btn-x3-primary" onclick="cPanelSubPages.loadWhmEmails()">🔄 Yenile</button>
+          <div style="flex:1;text-align:right;font-size:12px;color:#889" id="weCount"></div>
+        </div>
+        <div id="weBody">${loadingBox('E-posta hesapları yükleniyor…')}</div>
+      </div>`;
+    setTimeout(() => {
+      PanelAPI.getDomains().then(d => {
+        const sel = document.getElementById('weDomain');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">— tüm domainler —</option>' + d.domains.map(x => `<option value="${esc(x.name)}">${esc(x.name)}</option>`).join('');
+        this.loadWhmEmails();
+      }).catch(() => this.loadWhmEmails());
+    }, 50);
+    return html;
+  },
+
+  loadWhmEmails() {
+    const body = document.getElementById('weBody');
+    if (!body) return;
+    const domain = (document.getElementById('weDomain') || {}).value || '';
+    PanelAPI.getEmails(domain).then(d => {
+      const cnt = document.getElementById('weCount');
+      if (cnt) cnt.textContent = d.total + ' hesap' + (domain ? ' (' + domain + ')' : '');
+      if (!d.emails.length) {
+        body.innerHTML = '<div class="x3-form-box" style="text-align:center;color:#889;padding:24px">E-posta hesabı yok — Create an Email Account ile oluşturun</div>';
+        return;
+      }
+      body.innerHTML = `
+        <div class="x3-form-box" style="padding:0;overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead><tr style="text-align:left;border-bottom:2px solid #e5e9f0;color:#556">
+              <th style="padding:8px">E-posta</th><th style="padding:8px">Domain</th><th style="padding:8px">Kota</th>
+              <th style="padding:8px">Kullanım</th><th style="padding:8px">Oluşturma</th><th style="padding:8px;text-align:right">Aksiyon</th>
+            </tr></thead>
+            <tbody>${d.emails.map(a => {
+              const pct = a.quotaMB ? Math.min(100, Math.round((a.size / (a.quotaMB * 1048576)) * 100)) : 0;
+              return `
+              <tr>
+                <td style="padding:8px"><strong>${esc(a.email)}</strong></td>
+                <td style="padding:8px"><span class="badge-active" style="font-size:10px">${esc(a.domain)}</span></td>
+                <td style="padding:8px">${a.quotaMB ? a.quotaMB + ' MB' : '∞'}</td>
+                <td style="padding:8px;min-width:140px">
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <div style="flex:1;height:6px;background:#eef1f5;border-radius:3px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${pct > 90 ? '#ef4444' : pct > 60 ? '#f59e0b' : '#22c55e'}"></div></div>
+                    <span style="font-size:11px;color:#667">${esc(a.sizeH)}</span>
+                  </div>
+                </td>
+                <td style="padding:8px;font-size:11px;color:#889">${esc((a.created || '').slice(0, 10) || '—')}</td>
+                <td style="padding:8px;text-align:right;white-space:nowrap">
+                  <button class="btn-x3-sm" onclick="cPanelSubPages.whmEmailModify('${esc(a.email)}')">✏️</button>
+                  <button class="btn-x3-sm danger" onclick="cPanelSubPages.whmEmailDelete('${esc(a.email)}')">🗑</button>
+                </td>
+              </tr>`;
+            }).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }).catch(e => { body.innerHTML = errBox(e.message); });
+  },
+
+  /* ---------- Create an Email Account ---------- */
+  whmEmailCreate() {
+    const html = `
+      ${this.renderBreadcrumb('WHM', 'Email Functions » Create an Email Account')}
+      <div class="subpage-container">
+        ${this.header('➕ Create an Email Account', 'Gerçek postfix/dovecot hesabı — maildir + SMTP/IMAP erişimi')}
+        <div class="x3-form-box">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+            <div>
+              <label style="font-size:12px;color:#667">E-posta Adresi *</label>
+              <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+                <input type="text" id="ceUser" class="x3-input" placeholder="info" style="flex:1">
+                <span style="color:#889">@</span>
+                <select id="ceDomain" class="x3-input" style="flex:1.4"></select>
+              </div>
+            </div>
+            <div><label style="font-size:12px;color:#667">Parola *</label><input type="password" id="cePass" class="x3-input" placeholder="en az 6 karakter"></div>
+            <div><label style="font-size:12px;color:#667">Kota (MB, 0 = sınırsız)</label><input type="number" id="ceQuota" class="x3-input" value="200" min="0"></div>
+          </div>
+          <div style="margin-top:14px"><button class="btn-x3-primary" onclick="cPanelSubPages.whmEmailCreateSubmit()">➕ Hesap Oluştur</button></div>
+          <div id="ceMsg" style="margin-top:10px;font-size:13px"></div>
+        </div>
+      </div>`;
+    setTimeout(() => {
+      PanelAPI.getDomains().then(d => {
+        const sel = document.getElementById('ceDomain');
+        if (sel) sel.innerHTML = d.domains.map(x => `<option value="${esc(x.name)}">${esc(x.name)}</option>`).join('') || '<option value="">— domain yok —</option>';
+      }).catch(() => {});
+    }, 50);
+    return html;
+  },
+
+  whmEmailCreateSubmit() {
+    const msg = document.getElementById('ceMsg');
+    const user = (document.getElementById('ceUser') || {}).value.trim().toLowerCase();
+    const domain = (document.getElementById('ceDomain') || {}).value;
+    const pass = (document.getElementById('cePass') || {}).value;
+    const quota = +(document.getElementById('ceQuota') || {}).value || 0;
+    if (!user || !domain) { if (msg) msg.innerHTML = '<span style="color:#c0392b">Kullanıcı adı ve domain gerekli</span>'; return; }
+    PanelAPI.addEmail({ email: user + '@' + domain, password: pass, quotaMB: quota }).then(d => {
+      if (msg) msg.innerHTML = `<span style="color:#27ae60">✅ Hesap oluşturuldu: <strong>${esc(d.email)}</strong> (kota ${d.quotaMB || '∞'} MB, postfix maps ${esc(d.maps)})</span>`;
+      this.toast('✅ E-posta hesabı oluşturuldu: ' + d.email);
+      ['ceUser', 'cePass'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    }).catch(e => {
+      if (msg) msg.innerHTML = `<span style="color:#c0392b">❌ ${esc(e.message)}</span>`;
+    });
+  },
+
+  /* ---------- Modify Email Account ---------- */
+  whmEmailModify(email) {
+    if (!email) {
+      const html = `
+        ${this.renderBreadcrumb('WHM', 'Email Functions » Modify Email Account')}
+        <div class="subpage-container">
+          ${this.header('✏️ Modify Email Account', 'Parola ve kota değişikliği — dovecot passwd-file güncellemesi')}
+          <div class="x3-form-box" style="margin-bottom:12px">
+            <label style="font-size:12px;color:#667">Hesap Seç</label>
+            <select id="meSel" class="x3-input" onchange="cPanelSubPages.whmEmailModify(this.value)" style="margin-top:4px"></select>
+          </div>
+          <div id="meBody"></div>
+        </div>`;
+      setTimeout(() => {
+        PanelAPI.getEmails().then(d => {
+          const sel = document.getElementById('meSel');
+          if (sel) sel.innerHTML = d.emails.map(a => `<option value="${esc(a.email)}">${esc(a.email)}</option>`).join('') || '<option value="">— hesap yok —</option>';
+        }).catch(() => {});
+      }, 50);
+      return html;
+    }
+    const body = document.getElementById('meBody');
+    const sel = document.getElementById('meSel');
+    if (sel) sel.value = email;
+    if (!body) {
+      const container = document.getElementById('mainContentArea');
+      if (container) {
+        container.innerHTML = this.whmEmailModify();
+        setTimeout(() => {
+          const s2 = document.getElementById('meSel');
+          if (s2) { s2.value = email; this.loadWhmEmailModify(email); }
+        }, 300);
+      }
+      return;
+    }
+    this.loadWhmEmailModify(email);
+  },
+
+  loadWhmEmailModify(email) {
+    const body = document.getElementById('meBody');
+    if (!body || !email) return;
+    PanelAPI.getEmails().then(d => {
+      const a = d.emails.find(x => x.email === email);
+      if (!a) { body.innerHTML = errBox('Hesap bulunamadı'); return; }
+      body.innerHTML = `
+        <div class="x3-form-box">
+          <h3 style="margin-top:0">Hesap: <code>${esc(a.email)}</code></h3>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+            <div><label style="font-size:12px;color:#667">Yeni Parola (boş bırakılırsa değişmez)</label><input type="password" id="mePass" class="x3-input" placeholder="en az 6 karakter"></div>
+            <div><label style="font-size:12px;color:#667">Kota (MB, 0 = sınırsız)</label><input type="number" id="meQuota" class="x3-input" value="${a.quotaMB}" min="0"></div>
+          </div>
+          <div style="margin-top:14px"><button class="btn-x3-primary" onclick="cPanelSubPages.whmEmailModifySubmit('${esc(a.email)}')">💾 Kaydet</button></div>
+          <div id="meMsg" style="margin-top:10px;font-size:13px"></div>
+        </div>`;
+    }).catch(e => { body.innerHTML = errBox(e.message); });
+  },
+
+  whmEmailModifySubmit(email) {
+    const pass = (document.getElementById('mePass') || {}).value;
+    const quota = +(document.getElementById('meQuota') || {}).value;
+    const msg = document.getElementById('meMsg');
+    const data = { quotaMB: quota };
+    if (pass) data.password = pass;
+    PanelAPI.updateEmail(email, data).then(d => {
+      if (msg) msg.innerHTML = `<span style="color:#27ae60">✅ Güncellendi: <strong>${esc(d.email)}</strong> — kota ${d.quotaMB || '∞'} MB${d.passwordChanged ? ', parola değişti' : ''}</span>`;
+      this.toast('✅ E-posta hesabı güncellendi: ' + email);
+    }).catch(e => {
+      if (msg) msg.innerHTML = `<span style="color:#c0392b">❌ ${esc(e.message)}</span>`;
+    });
+  },
+
+  /* ---------- Delete Email Account ---------- */
+  whmEmailDelete(email) {
+    if (!email) {
+      const html = `
+        ${this.renderBreadcrumb('WHM', 'Email Functions » Delete Email Account')}
+        <div class="subpage-container">
+          ${this.header('🗑 Delete Email Account', 'Hesap + maildir tamamen silinir (geri alınamaz)')}
+          <div class="x3-form-box" style="margin-bottom:12px">
+            <label style="font-size:12px;color:#667">Hesap Seç</label>
+            <select id="deSel" class="x3-input" style="margin-top:4px"></select>
+          </div>
+          <button class="btn-x3-primary danger" onclick="cPanelSubPages.whmEmailDeleteSubmit()">🗑 Hesabı Sil</button>
+          <div id="deMsg" style="margin-top:10px;font-size:13px"></div>
+        </div>`;
+      setTimeout(() => {
+        PanelAPI.getEmails().then(d => {
+          const sel = document.getElementById('deSel');
+          if (sel) sel.innerHTML = d.emails.map(a => `<option value="${esc(a.email)}">${esc(a.email)}</option>`).join('') || '<option value="">— hesap yok —</option>';
+        }).catch(() => {});
+      }, 50);
+      return html;
+    }
+    if (!confirm(`"${email}" hesabı ve tüm mailleri silinsin mi?`)) return;
+    PanelAPI.deleteEmail(email).then(d => {
+      this.toast('🗑 E-posta hesabı silindi: ' + d.email);
+      const body = document.getElementById('weBody');
+      if (body) this.loadWhmEmails();
+    }).catch(e => this.toast('❌ ' + e.message));
+  },
+
+  whmEmailDeleteSubmit() {
+    const sel = document.getElementById('deSel');
+    const email = sel ? sel.value : '';
+    if (!email) { const msg = document.getElementById('deMsg'); if (msg) msg.innerHTML = '<span style="color:#c0392b">Hesap seçin</span>'; return; }
+    if (!confirm(`"${email}" hesabı ve tüm mailleri silinsin mi? (geri alınamaz)`)) return;
+    PanelAPI.deleteEmail(email).then(d => {
+      const msg = document.getElementById('deMsg');
+      if (msg) msg.innerHTML = `<span style="color:#27ae60">✅ Silindi: <strong>${esc(d.email)}</strong></span>`;
+      this.toast('🗑 E-posta hesabı silindi: ' + d.email);
+      PanelAPI.getEmails().then(r => {
+        const s2 = document.getElementById('deSel');
+        if (s2) s2.innerHTML = r.emails.map(a => `<option value="${esc(a.email)}">${esc(a.email)}</option>`).join('') || '<option value="">— hesap yok —</option>';
+      }).catch(() => {});
+    }).catch(e => {
+      const msg = document.getElementById('deMsg');
+      if (msg) msg.innerHTML = `<span style="color:#c0392b">❌ ${esc(e.message)}</span>`;
+    });
+  },
+
+  /* ---------- Email Disk Usage ---------- */
+  whmEmailDisk() {
+    const html = `
+      ${this.renderBreadcrumb('WHM', 'Email Functions » Email Disk Usage')}
+      <div class="subpage-container">
+        ${this.header('💾 Email Disk Usage', 'Maildir kullanımı — hesap bazında kota doluluk oranı')}
+        <div id="edBody">${loadingBox('Kullanım hesaplanıyor…')}</div>
+      </div>`;
+    setTimeout(() => {
+      PanelAPI.getEmails().then(d => {
+        const el = document.getElementById('edBody');
+        if (!el) return;
+        if (!d.emails.length) { el.innerHTML = '<div class="x3-form-box" style="text-align:center;color:#889;padding:24px">E-posta hesabı yok</div>'; return; }
+        const maxSize = Math.max(...d.emails.map(a => a.size), 1);
+        const domainTotals = Object.entries(d.totals || {}).map(([dom, sz]) => ({ dom, sz })).sort((a, b) => b.sz - a.sz);
+        el.innerHTML = `
+          <div class="x3-form-box" style="padding:0;overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead><tr style="text-align:left;border-bottom:2px solid #e5e9f0;color:#556">
+                <th style="padding:8px">E-posta</th><th style="padding:8px">Kullanım</th><th style="padding:8px">Kota</th><th style="padding:8px">Doluluk</th>
+              </tr></thead>
+              <tbody>${d.emails.map(a => {
+                const pct = a.quotaMB ? Math.min(100, Math.round((a.size / (a.quotaMB * 1048576)) * 100)) : null;
+                const barW = Math.max(2, Math.round((a.size / maxSize) * 100));
+                return `
+                <tr>
+                  <td style="padding:8px"><strong>${esc(a.email)}</strong></td>
+                  <td style="padding:8px;min-width:160px">
+                    <div style="display:flex;align-items:center;gap:6px">
+                      <div style="flex:1;height:8px;background:#eef1f5;border-radius:4px;overflow:hidden"><div style="width:${barW}%;height:100%;background:${pct === null ? '#38bdf8' : pct > 90 ? '#ef4444' : pct > 60 ? '#f59e0b' : '#22c55e'}"></div></div>
+                      <span style="font-size:11px;color:#667;white-space:nowrap">${esc(a.sizeH)}</span>
+                    </div>
+                  </td>
+                  <td style="padding:8px">${a.quotaMB ? a.quotaMB + ' MB' : '∞'}</td>
+                  <td style="padding:8px;font-size:12px">${pct === null ? '—' : pct + '%'}</td>
+                </tr>`;
+              }).join('')}
+              </tbody>
+            </table>
+          </div>
+          <div class="x3-form-box" style="margin-top:12px;padding:12px 16px">
+            <strong style="font-size:13px">Domain Toplamları</strong>
+            ${domainTotals.map(t => `
+              <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+                <span style="font-size:12px;width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.dom)}</span>
+                <div style="flex:1;height:8px;background:#eef1f5;border-radius:4px;overflow:hidden"><div style="width:${Math.max(2, Math.round((t.sz / Math.max(...domainTotals.map(x => x.sz), 1)) * 100))}%;height:100%;background:#6366f1"></div></div>
+                <span style="font-size:12px;color:#667">${fmtBytes(t.sz)}</span>
+              </div>`).join('')}
+          </div>`;
+      }).catch(e => {
+        const el = document.getElementById('edBody');
+        if (el) el.innerHTML = errBox(e.message);
+      });
+    }, 50);
+    return html;
   }
 });

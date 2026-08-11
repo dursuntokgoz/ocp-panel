@@ -17,6 +17,22 @@
 - [x] `/api/terminal` — gerçek shell komutu çalıştırma (60s limit)
 - [x] systemd servisi (`ocp-panel.service`, açılışta otomatik başlar)
 
+### WHM (WebHost Manager — gerçek menü yapısı)
+- [x] **Home:** Server Status, Services, Network Interfaces, System Users, Package Updates
+- [x] **Account Functions:** Create a New Account (sistem kullanıcısı + vhost + hosts), List Accounts, Modify an Account, Terminate an Account
+- [x] **Packages:** Add/Edit/Delete/List Package (disk, domain, e-posta, bant genişliği limitleri)
+- [x] **Resellers:** Reseller Center, Create/Modify/Terminate Reseller (gerçek sistem kullanıcıları)
+- [x] **DNS Functions:** DNS Zone Manager (A/CNAME/MX/NS/TXT), Add/Edit DNS Zone (gerçek /etc/hosts)
+- [x] **Email Functions:** Email Accounts, Create/Modify/Delete Email Account, Email Disk Usage
+
+### 📧 E-posta (gerçek postfix + dovecot)
+- [x] postfix sanal domainler (`virtual_mailbox_domains` + map'ler, panelden senkronize)
+- [x] dovecot passwd-file auth — SMTP SASL (587) + IMAP (143) + POP3 (110)
+- [x] maildir teslimi (`/var/mail/vhosts/<domain>/<user>/`), vmail (uid 5000)
+- [x] Hesap kotası (`quota_rule` → dovecot) + paket e-posta limiti kontrolü
+- [x] Kurulum scripti: `deploy/mail-stack-setup.sh`
+- [ ] Webmail (Roundcube)
+
 ### Frontend (cPanel X3 teması korunarak)
 - [x] Login ekranı (overlay)
 - [x] **System kategorisi**: Server Status, Services, Network Interfaces, System Users, Package Updates
@@ -24,8 +40,9 @@
 - [x] Sidebar istatistikleri gerçek veriler (disk, RAM, servis, proses, docker, sıcaklık)
 
 ## 🔜 Gelecek
+- [ ] FTP hesapları (vsftpd entegrasyonu)
+- [ ] Webmail (Roundcube)
 - [ ] Gerçek zamanlı izleme (SSE/WebSocket ile CPU/RAM grafikleri)
-- [ ] PHP/nginx site yönetimi (vhost oluşturma)
 - [ ] Docker yönetimi (konteyner başlat/durdur/log)
 - [ ] Yedekleme otomasyonu (panel üzerinden)
 - [ ] Çok kullanıcılı yetkilendirme (rol bazlı)

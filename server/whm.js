@@ -302,6 +302,7 @@ server {
     };
     db.domains.push(domain);
     saveDB(db);
+    syncMailMaps();
     res.json({ ok: true, domain, nginx: rl.ok ? 'reloaded' : rl.output.trim() });
   });
 
@@ -337,6 +338,7 @@ server {
     reloadNginx();
     db.domains.splice(idx, 1);
     saveDB(db);
+    syncMailMaps();
     res.json({ ok: true });
   });
 
@@ -391,6 +393,178 @@ server {
       r = sudo(`sh -c 'echo "${ip} ${name}" >> /etc/hosts'`, 10000);
     }
     res.json({ ok: r.ok, output: (r.ok ? 'A kaydı güncellendi: ' : 'Hata: ') + name + ' → ' + ip + (r.output ? ' (' + r.output.trim() + ')' : '') });
+  });
+
+  /* ==========================================================
+   * EMAIL FUNCTIONS — gerçek postfix + dovecot entegrasyonu
+   * Hesaplar : /etc/dovecot/ocp-users (passwd-file, {PLAIN})
+   * Domainler: /etc/postfix/virtual_domains + virtual_mailbox
+   * Maildir  : /var/mail/vhosts/<domain>/<user>/
+   * ========================================================== */
+  const MAIL_PASSWD = '/etc/dovecot/ocp-users';
+  const MAIL_VHOST = '/var/mail/vhosts';
+  const PF_VDOMS = '/etc/postfix/virtual_domains';
+  const PF_VBOX = '/etc/postfix/virtual_mailbox';
+  const EMAIL_RE = /^[a-z0-9][a-z0-9._-]{0,63}@([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i;
+
+  function readMailAccounts() {
+    try {
+      const raw = fs.readFileSync(MAIL_PASSWD, 'utf8');
+      return raw.split('\n').filter(Boolean).map(line => {
+        const p = line.split(':');
+        const email = p[0] || '';
+        const m = email.match(/^(.+)@(.+)$/);
+        if (!m) return null;
+        const extra = p.slice(8).join(':') || '';
+        const q = extra.match(/storage=(\d+)M/);
+        return {
+          email,
+          user: m[1],
+          domain: m[2],
+          quotaMB: q ? +q[1] : 0,
+          home: `${MAIL_VHOST}/${m[2]}/${m[1]}`
+        };
+      }).filter(Boolean);
+    } catch (e) { return []; }
+  }
+
+  // mevcut hash'leri koruyarak passwd-file'ı tamamen yeniden yazar
+  function writeMailPasswd(accounts, passwords) {
+    const cur = {};
+    try {
+      fs.readFileSync(MAIL_PASSWD, 'utf8').split('\n').filter(Boolean).forEach(l => {
+        const p = l.split(':');
+        if (p[0]) cur[p[0]] = p[1];
+      });
+    } catch (e) { /* yoksay */ }
+    const lines = accounts.map(a => {
+      const hash = (passwords && passwords[a.email]) ? '{PLAIN}' + passwords[a.email] : (cur[a.email] || '{PLAIN}Degistir123!');
+      return `${a.email}:${hash}:5000:5000::${a.home}::quota_rule=*:storage=${a.quotaMB || 0}M`;
+    });
+    const tmp = '/tmp/ocp-users.new';
+    fs.writeFileSync(tmp, lines.join('\n') + '\n');
+    let r = sudo(`cp ${tmp} ${MAIL_PASSWD} && chown vmail:vmail ${MAIL_PASSWD} && rm -f ${tmp}`, 10000);
+    // chown başarısız olursa (kısıtlı ortam) — dovecot root olarak okur, sorun değil
+    if (!r.ok && /chown/.test(r.output)) {
+      r = sudo(`cp ${tmp} ${MAIL_PASSWD} && rm -f ${tmp}`, 10000);
+    }
+    if (!r.ok) { try { fs.unlinkSync(tmp); } catch (e) {} }
+    return r;
+  }
+
+  // postfix sanal domain + mailbox map'lerini DB'den yeniden üretir
+  function syncMailMaps() {
+    const db = loadDB();
+    const vdoms = db.domains.map(d => d.name + ' OK').join('\n') + '\n';
+    const vbox = readMailAccounts().map(a => `${a.email} ${a.domain}/${a.user}/`).join('\n') + '\n';
+    const t1 = '/tmp/ocp-vdoms', t2 = '/tmp/ocp-vbox';
+    fs.writeFileSync(t1, vdoms);
+    fs.writeFileSync(t2, vbox);
+    const r = sudo(`sh -c 'cp ${t1} ${PF_VDOMS} && cp ${t2} ${PF_VBOX} && postmap ${PF_VDOMS} ${PF_VBOX} && rm -f ${t1} ${t2}'`, 15000);
+    if (r.ok) sudo(`postfix reload`, 10000);
+    return r;
+  }
+
+  function sudoDirSize(p) {
+    try {
+      const r = sudo(`du -sb "${p}" 2>/dev/null | cut -f1`, 10000);
+      return parseInt(r.output.trim()) || 0;
+    } catch (e) { return 0; }
+  }
+
+  // paket e-posta limiti kontrolü (0 = sınırsız)
+  function checkEmailQuota(db, domain, extra = 1) {
+    const dom = db.domains.find(d => d.name === domain);
+    if (!dom || !dom.reseller) return null;
+    const reseller = db.resellers.find(r => r.username === dom.reseller);
+    if (!reseller) return null;
+    const pkg = getPackage(db, reseller.package);
+    if (!pkg || !pkg.emails) return null;
+    const doms = db.domains.filter(d => d.reseller === reseller.username).map(d => d.name);
+    const count = readMailAccounts().filter(a => doms.includes(a.domain)).length;
+    if (count + extra > pkg.emails) return `Paket limiti aşıldı: ${pkg.name} paketi en fazla ${pkg.emails} e-posta hesabı içerir`;
+    return null;
+  }
+
+  // --- E-posta hesaplarını listele ---
+  router.get('/emails', auth, (req, res) => {
+    const db = loadDB();
+    const domainFilter = String(req.query.domain || '').toLowerCase();
+    const accs = readMailAccounts()
+      .filter(a => !domainFilter || a.domain === domainFilter)
+      .map(a => {
+        const meta = (db.emails || []).find(e => e.email === a.email) || {};
+        const size = sudoDirSize(a.home);
+        return { ...a, size, sizeH: fmtBytes(size), created: meta.created || '', owner: meta.owner || '' };
+      })
+      .sort((x, y) => x.domain.localeCompare(y.domain) || x.user.localeCompare(y.user));
+    const totals = {};
+    accs.forEach(a => { totals[a.domain] = (totals[a.domain] || 0) + a.size; });
+    res.json({ ok: true, emails: accs, total: accs.length, totals });
+  });
+
+  // --- E-posta hesabı oluştur ---
+  router.post('/emails', auth, (req, res) => {
+    const b = req.body || {};
+    const email = String(b.email || '').toLowerCase().trim();
+    if (!EMAIL_RE.test(email)) return res.status(400).json({ error: 'Geçersiz e-posta adresi' });
+    if (!b.password || String(b.password).length < 6) return res.status(400).json({ error: 'Parola en az 6 karakter olmalı' });
+    const quotaMB = Math.max(0, +b.quotaMB || 0);
+    const db = loadDB();
+    const m = email.match(/^(.+)@(.+)$/);
+    const domain = m[2];
+    if (!db.domains.some(d => d.name === domain)) return res.status(400).json({ error: `"${domain}" domaini WHM'de kayıtlı değil — önce Create a New Account ile oluşturun` });
+    if (readMailAccounts().some(a => a.email === email)) return res.status(400).json({ error: 'Bu e-posta adresi zaten var' });
+    const quotaErr = checkEmailQuota(db, domain);
+    if (quotaErr) return res.status(400).json({ error: quotaErr });
+
+    const home = `${MAIL_VHOST}/${domain}/${m[1]}`;
+    // maildir root olarak oluştur (dash'te brace expansion yok — açık yollar)
+    // /var/mail/vhosts üzerindeki default ACL vmail erişimini verir
+    const r1 = sudo(`mkdir -p ${home}/cur ${home}/new ${home}/tmp`, 10000);
+    if (!r1.ok) return res.status(500).json({ error: 'Maildir oluşturulamadı: ' + r1.output.trim() });
+    const r2 = writeMailPasswd(readMailAccounts().concat([{ email, user: m[1], domain, quotaMB, home }]), { [email]: String(b.password) });
+    if (!r2.ok) { sudo(`rm -rf ${MAIL_VHOST}/${domain}`, 10000); return res.status(500).json({ error: 'passwd-file yazılamadı: ' + r2.output.trim() }); }
+    const r3 = syncMailMaps();
+    db.emails = db.emails || [];
+    db.emails.push({ email, user: m[1], domain, quotaMB, created: new Date().toISOString(), owner: db.domains.find(d => d.name === domain).reseller || '' });
+    saveDB(db);
+    res.json({ ok: true, email, quotaMB, maps: r3.ok ? 'synced' : r3.output.trim() });
+  });
+
+  // --- Parola / kota değiştir ---
+  router.put('/emails/:email', auth, (req, res) => {
+    const email = String(req.params.email || '').toLowerCase();
+    const accs = readMailAccounts();
+    const acc = accs.find(a => a.email === email);
+    if (!acc) return res.status(404).json({ error: 'E-posta hesabı bulunamadı' });
+    const b = req.body || {};
+    const pw = b.password ? String(b.password) : null;
+    if (pw && pw.length < 6) return res.status(400).json({ error: 'Parola en az 6 karakter olmalı' });
+    if (b.quotaMB != null) acc.quotaMB = Math.max(0, +b.quotaMB || 0);
+    const r = writeMailPasswd(accs, pw ? { [email]: pw } : null);
+    if (!r.ok) return res.status(500).json({ error: 'passwd-file yazılamadı: ' + r.output.trim() });
+    const db = loadDB();
+    const meta = (db.emails || []).find(e => e.email === email);
+    if (meta && b.quotaMB != null) meta.quotaMB = acc.quotaMB;
+    saveDB(db);
+    res.json({ ok: true, email, quotaMB: acc.quotaMB, passwordChanged: !!pw });
+  });
+
+  // --- E-posta hesabı sil ---
+  router.delete('/emails/:email', auth, (req, res) => {
+    const email = String(req.params.email || '').toLowerCase();
+    const accs = readMailAccounts();
+    const acc = accs.find(a => a.email === email);
+    if (!acc) return res.status(404).json({ error: 'E-posta hesabı bulunamadı' });
+    const r1 = writeMailPasswd(accs.filter(a => a.email !== email));
+    if (!r1.ok) return res.status(500).json({ error: 'passwd-file yazılamadı: ' + r1.output.trim() });
+    sudo(`rm -rf ${acc.home}`, 10000);
+    syncMailMaps();
+    const db = loadDB();
+    db.emails = (db.emails || []).filter(e => e.email !== email);
+    saveDB(db);
+    res.json({ ok: true, email, removed: true });
   });
 
   /* ---------- yardımcı ---------- */

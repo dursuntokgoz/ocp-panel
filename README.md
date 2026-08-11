@@ -32,9 +32,13 @@ Panel, klasik cPanel X3 arayüzünü birebir taklit eder; ancak arkasında **ger
 |---|---|
 | ![List Accounts](screenshots/whm-list-accounts.png) | ![Reseller Center](screenshots/whm-reseller-center.png) |
 
-| DNS Zone Manager (WHM) |
-|---|
-| ![DNS Zone Manager](screenshots/whm-dns-zones.png) |
+| DNS Zone Manager (WHM) | Email Accounts (WHM) |
+|---|---|
+| ![DNS Zone Manager](screenshots/whm-dns-zones.png) | ![Email Accounts](screenshots/whm-email-accounts.png) |
+
+| Create Email Account (WHM) | Email Disk Usage (WHM) |
+|---|---|
+| ![Create Email](screenshots/whm-email-create.png) | ![Email Disk](screenshots/whm-email-disk.png) |
 
 ---
 
@@ -71,6 +75,10 @@ Panel, klasik cPanel X3 arayüzünü birebir taklit eder; ancak arkasında **ger
 | `PUT/DELETE /api/domains/:name` | Domain düzenle/sil |
 | `GET /api/dns-zones` | Tüm zone'lar: A, CNAME, MX, NS, TXT kayıtları |
 | `PUT /api/dns-zones/:domain` | A kaydı IP güncelle → gerçek /etc/hosts değişikliği |
+| `GET /api/emails?domain=` | E-posta hesapları (maildir boyutu, kota, tarih) + domain filtresi |
+| `POST /api/emails` | E-posta hesabı oluştur → dovecot passwd-file + maildir + postfix maps |
+| `PUT /api/emails/:email` | Parola / kota değiştir (dovecot auth anında etkili) |
+| `DELETE /api/emails/:email` | Hesap + maildir silme |
 
 ### 🖥️ Frontend Modülleri
 - **WHM (WebHost Manager) — gerçek WHM menü yapısı:**
@@ -79,6 +87,7 @@ Panel, klasik cPanel X3 arayüzünü birebir taklit eder; ancak arkasında **ger
   - **Packages:** Add a Package, Edit a Package, Delete a Package, List Packages
   - **Resellers:** Reseller Center, Create a Reseller, Reseller Modification, Terminate a Reseller
   - **DNS Functions:** DNS Zone Manager, Add a DNS Zone, Edit DNS Zone
+  - **Email Functions:** Email Accounts, Create an Email Account, Modify Email Account, Delete Email Account, Email Disk Usage
 - **Gerçek veriyle çalışan cPanel modülleri:** Terminal, File Manager, Process Manager, Cron Jobs, Error Logs, Disk Usage, MySQL, Resource Usage, CPU/Concurrent, Visitors, Bandwidth
 - **Tema korumalı simülasyon modülleri:** Mail, Domains, Security, Software kategorileri (cPanel klonu olarak)
 - Canlı sidebar istatistikleri: disk, RAM, çalışan servis, proses, docker, sıcaklık
@@ -92,6 +101,17 @@ Panel, klasik cPanel X3 arayüzünü birebir taklit eder; ancak arkasında **ger
 - **Kota kontrolü:** domain sayısı paket limitini aşınca ekleme reddedilir; disk kullanımı `du` ile canlı izlenir
 - **Veri deposu:** `~/.config/ocp-panel/data.json`
 
+### 📧 WHM — Email Functions (gerçek postfix + dovecot)
+- **Gerçek mail yığını:** postfix (sanal domainler) + dovecot (IMAP/POP3) + maildir depolama
+- **Hesap oluşturma:** passwd-file'a `{PLAIN}` kayıt, maildir (`cur/new/tmp`) otomatik, postfix `virtual_domains` + `virtual_mailbox` map'leri senkronize
+- **SMTP AUTH:** 587/submission portu dovecot SASL socket'i ile çalışır (`AUTH PLAIN`)
+- **IMAP/POP3:** 143/110 portları, dovecot passwd-file auth (`user@domain`)
+- **Kota:** hesap başına MB kotası → dovecot `quota_rule` ekstra alanı + panelde doluluk çubuğu
+- **Paket limiti:** paketteki `emails` sayısı aşılınca yeni hesap reddedilir (ör. Bronze: 5)
+- **Parola değişimi:** anında etkili (passwd-file yeniden yazılır, eski parola reddedilir)
+- **E-posta silme:** hesap + maildir + postfix maps temizlenir
+- **SMTP gönderim:** aynı sunucudan doğrudan teslim (`virtual_transport`), MX kaydı DNS zone'da hazır
+
 ---
 
 ## 🚀 Kurulum
@@ -100,6 +120,7 @@ Panel, klasik cPanel X3 arayüzünü birebir taklit eder; ancak arkasında **ger
 - Linux (Debian/Ubuntu test edildi — Raspberry Pi 5 ✓)
 - Node.js ≥ 18
 - nginx (domain/vhost yönetimi için — `sudo apt install nginx`)
+- postfix + dovecot (e-posta yönetimi için — `sudo apt install postfix dovecot-imapd dovecot-pop3d`)
 - sudo yetkisi (servis yönetimi için)
 
 ### 1. Klon ve bağımlılıklar
@@ -175,11 +196,12 @@ ocp-panel/
 - [x] Gerçek sistem API'leri (18 uç)
 - [x] Terminal, File Manager, Services, Process, Cron, Logs, Network, MySQL
 - [x] systemd entegrasyonu
+- [x] WHM: hesap/reseller/paket/DNS yönetimi (nginx vhost + /etc/hosts)
+- [x] WHM: e-posta hesapları (postfix + dovecot, SMTP AUTH, IMAP/POP3, kota)
 - [ ] Gerçek zamanlı grafikler (WebSocket/SSE)
-- [ ] Docker yönetim modülü
-- [ ] nginx/PHP vhost yönetimi
+- [ ] FTP hesapları (vsftpd)
+- [ ] Webmail (Roundcube)
 - [ ] HTTPS (self-signed)
-- [ ] Rol bazlı çok kullanıcı
 
 ---
 

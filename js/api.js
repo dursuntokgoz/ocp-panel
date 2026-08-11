@@ -106,5 +106,11 @@ const PanelAPI = {
 
   /* --- DNS --- */
   getDnsZones() { return this.get('/dns-zones'); },
-  updateDnsZone(domain, ip) { return this.request('PUT', '/dns-zones/' + encodeURIComponent(domain), { ip }); }
+  updateDnsZone(domain, ip) { return this.request('PUT', '/dns-zones/' + encodeURIComponent(domain), { ip }); },
+
+  /* --- Email (WHM) --- */
+  getEmails(domain) { return this.get('/emails' + (domain ? '?domain=' + encodeURIComponent(domain) : '')); },
+  addEmail(data) { return this.post('/emails', data); },
+  updateEmail(email, data) { return this.request('PUT', '/emails/' + encodeURIComponent(email), data); },
+  deleteEmail(email) { return this.request('DELETE', '/emails/' + encodeURIComponent(email)); }
 };

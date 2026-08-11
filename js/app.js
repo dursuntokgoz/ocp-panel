@@ -34,6 +34,12 @@ const cPanelApp = {
         { name: 'DNS Zone Manager', icon: 'dnsZoneManager', action: 'dnsZoneManager' },
         { name: 'Add a DNS Zone', icon: 'addDnsZone', action: 'addDnsZone' },
         { name: 'Edit DNS Zone', icon: 'editDnsZone', action: 'editDnsZone' },
+        /* --- Email Functions --- */
+        { name: 'Email Accounts', icon: 'emailAccounts', action: 'whmEmails' },
+        { name: 'Create an Email Account', icon: 'createEmail', action: 'whmEmailCreate' },
+        { name: 'Modify Email Account', icon: 'modifyEmail', action: 'whmEmailModify' },
+        { name: 'Delete Email Account', icon: 'deleteEmail', action: 'whmEmailDelete' },
+        { name: 'Email Disk Usage', icon: 'emailDiskUsage', action: 'whmEmailDisk' },
       ]
     },
     {
