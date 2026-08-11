@@ -1925,6 +1925,7 @@ Object.assign(cPanelSubPages, {
                 </td>
                 <td style="padding:8px;font-size:11px;color:#889">${esc((a.created || '').slice(0, 10) || '—')}</td>
                 <td style="padding:8px;text-align:right;white-space:nowrap">
+                  <button class="btn-x3-sm" onclick="window.open('http://webmail.${esc(a.domain)}', '_blank')" title="Webmail">📧</button>
                   <button class="btn-x3-sm" onclick="cPanelSubPages.whmEmailModify('${esc(a.email)}')">✏️</button>
                   <button class="btn-x3-sm danger" onclick="cPanelSubPages.whmEmailDelete('${esc(a.email)}')">🗑</button>
                 </td>
@@ -2379,5 +2380,25 @@ Object.assign(cPanelSubPages, {
           </div>
         </div>`;
     }).catch(e => { body.innerHTML = errBox(e.message); });
-  }
+  },
+
+  /* ---------- Webmail (cPanel — Roundcube) ---------- */
+  webmail() {
+    const domain = X3Store.getAccount()?.domain || 'musteri.com';
+    const url = `http://webmail.${domain}`;
+    window.open(url, '_blank');
+    this.toast('📧 Roundcube Webmail açılıyor: ' + url);
+    return `
+      ${this.renderBreadcrumb('Mail', 'Webmail')}
+      <div class="subpage-container">
+        ${this.header('📧 Webmail', 'Roundcube Webmail arayüzü')}
+        <div class="x3-form-box" style="text-align:center;padding:40px">
+          <div style="font-size:48px;margin-bottom:16px">📧</div>
+          <h3 style="margin-top:0">Webmail Açılıyor…</h3>
+          <p style="color:#667;margin-bottom:20px">Yeni sekmede <code>${esc(url)}</code> açıldı.</p>
+          <p style="color:#667;font-size:13px">Açılmazsa <a href="${esc(url)}" target="_blank" style="color:#e8740c">buraya tıklayın</a>.</p>
+          <button class="btn-x3-primary" onclick="window.open('${esc(url)}', '_blank')">📧 Webmail'i Tekrar Aç</button>
+        </div>
+      </div>`;
+  },
 });

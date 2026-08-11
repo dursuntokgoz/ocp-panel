@@ -126,6 +126,14 @@ Panel, klasik cPanel X3 arayüzünü birebir taklit eder; ancak arkasında **ger
 - **E-posta silme:** hesap + maildir + postfix maps temizlenir
 - **SMTP gönderim:** aynı sunucudan doğrudan teslim (`virtual_transport`), MX kaydı DNS zone'da hazır
 
+### 📧 WHM — Webmail (Roundcube)
+- **Gerçek webmail arayüzü:** Roundcube 1.6.5 (Debian repo) + nginx + php-fpm
+- **IMAP/SMTP entegrasyonu:** dovecot IMAP (143) + postfix SMTP (587) — `%u`/`%p` ile panel hesaplarıyla otomatik login
+- **cPanel Mail kategorisi:** "Webmail" butonu → yeni sekmede Roundcube açılır
+- **WHM Email Accounts:** her hesabın yanında 📧 Webmail butonu → o domain'in Roundcube'u açılır
+- **Domain bazlı:** `http://webmail.<domain>` (ör. `webmail.musteri.com`) — panel domain sistemine entegre
+- **Kurulum:** `apt install roundcube roundcube-mysql php8.4-fpm php8.4-mysql php8.4-intl php8.4-mbstring php8.4-xml php8.4-curl`
+
 ### 📁 WHM — FTP Functions (gerçek vsftpd)
 - **Gerçek FTP sunucusu:** vsftpd virtual user modu (passwd-file auth)
 - **Hesap oluşturma:** vsftpd passwd-file'a kayıt, FTP kök dizini otomatik (`/home/ftp/<user>`)
@@ -145,6 +153,7 @@ Panel, klasik cPanel X3 arayüzünü birebir taklit eder; ancak arkasında **ger
 - nginx (domain/vhost yönetimi için — `sudo apt install nginx`)
 - postfix + dovecot (e-posta yönetimi için — `sudo apt install postfix dovecot-imapd dovecot-pop3d`)
 - vsftpd (FTP hesap yönetimi için — `sudo apt install vsftpd`)
+- php8.4-fpm + php-mysql + php-intl + php-mbstring + php-xml + php-curl (Roundcube webmail için)
 - sudo yetkisi (servis yönetimi için)
 
 ### 1. Klon ve bağımlılıklar
@@ -224,7 +233,7 @@ ocp-panel/
 - [x] WHM: e-posta hesapları (postfix + dovecot, SMTP AUTH, IMAP/POP3, kota)
 - [ ] Gerçek zamanlı grafikler (WebSocket/SSE)
 - [x] FTP hesapları (vsftpd)
-- [ ] Webmail (Roundcube)
+- [x] Webmail (Roundcube)
 - [ ] HTTPS (self-signed)
 
 ---

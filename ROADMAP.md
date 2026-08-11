@@ -34,6 +34,14 @@
 - [x] Paket limiti kontrolü (paket FTP limiti aşılınca reddedilir)
 - [x] Ekran görüntüleri: FTP Accounts, Create FTP, FTP Connections
 
+### 📧 Webmail (Roundcube)
+- [x] Roundcube 1.6.5 kurulumu (Debian repo + MariaDB backend)
+- [x] nginx vhost + php8.4-fpm konfigürasyonu
+- [x] IMAP/SMTP entegrasyonu (dovecot 143 + postfix 587)
+- [x] cPanel "Webmail" modülü → Roundcube açılır
+- [x] WHM Email Accounts tablosunda 📧 Webmail butonu
+- [x] Domain bazlı webmail URL: `http://webmail.<domain>`
+
 ### 📧 E-posta (gerçek postfix + dovecot)
 - [x] postfix sanal domainler (`virtual_mailbox_domains` + map'ler, panelden senkronize)
 - [x] dovecot passwd-file auth — SMTP SASL (587) + IMAP (143) + POP3 (110)
