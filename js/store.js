@@ -1,6 +1,6 @@
 /* ============================================================
  * OCP Panel — Veri Katmanı (localStorage simülasyon motoru)
- * Tüm cPanel modülleri için kalıcı veri yönetimi.
+ * Tüm OCP Panel modülleri için kalıcı veri yönetimi.
  * ============================================================ */
 const X3Store = {
   KEY: 'ocp_panel_data_v1',
@@ -86,7 +86,7 @@ const X3Store = {
       ],
       ssl: {
         status: 'active',
-        type: 'AutoSSL (cPanel)',
+        type: 'AutoSSL (OCP Panel)',
         issuer: 'Let\'s Encrypt',
         expires: '2024-06-15',
         certs: [

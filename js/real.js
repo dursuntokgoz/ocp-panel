@@ -1,7 +1,7 @@
 /* ============================================================
  * OCP Panel — GERÇEK Sistem Modülleri
  * Simülasyon modüllerini gerçek backend API'si ile değiştirir.
- * subpages.js'ten SONRA yüklenir, cPanelSubPages metodlarını
+ * subpages.js'ten SONRA yüklenir, OCP SubPages metodlarını
  * override eder + yeni System modülleri ekler.
  * ============================================================ */
 

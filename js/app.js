@@ -1,6 +1,6 @@
 /* ============================================================
- * OCP Panel — Uygulama Kontrolcüsü (cPanel klonu)
- * Tüm cPanel modülleri: router + kategori + tema + arama
+* OCP Panel — Uygulama Kontrolcüsü (OCP Panel klonu)
+* Tüm OCP Panel modülleri: router + kategori + tema + arama
  * ============================================================ */
 const cPanelApp = {
   activeView: 'dashboard',
@@ -298,6 +298,9 @@ const cPanelApp = {
       if (el) el.style.width = Math.min(pct, 100) + '%';
     };
     PanelAPI.stats().then(s => {
+      set('statDomain', s.ip || 'ocp-panel.local');
+      set('statHome', '/home/' + (s.user || 'dursun'));
+      set('statLogin', 'localhost');
       set('statDisk', (s.disk.pct || 0) + '%');
       set('statBandwidth', (s.memory.pct || 0) + '%');
       set('statEmails', s.services || 0);
