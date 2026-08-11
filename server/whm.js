@@ -79,7 +79,7 @@ server {
     // geçici dosyaya yaz, sudo ile taşı (nginx dizinleri root'a ait)
     const tmp = '/tmp/ocp-vhost-' + domain + '.conf';
     fs.writeFileSync(tmp, conf);
-    sudo(`cp ${tmp} ${vhostFile(domain)} && ln -sf ${vhostFile(domain)} ${path.join(NGINX_ENABLED, domain + '.conf')} && rm -f ${tmp}`, 10000);
+    sudo(`sh -c 'cp ${tmp} ${vhostFile(domain)} && ln -sf ${vhostFile(domain)} ${path.join(NGINX_ENABLED, domain + '.conf')} && rm -f ${tmp}'`, 10000);
   }
 
   function removeVhost(domain) {
@@ -284,7 +284,7 @@ server {
     // kök dizin (sudo — kullanıcı dizinleri ve /var/www root'a ait olabilir)
     let root = b.root || (reseller ? `/home/${reseller.username}/public_html` : '/var/www/' + name);
     root = root.replace(/\/+$/, '');
-    sudo(`mkdir -p ${root} && [ -f ${root}/index.html ] || printf '<h1>${name}</h1><p>OCP Panel tarafından oluşturuldu.</p>' > ${root}/index.html`, 10000);
+    sudo(`sh -c 'mkdir -p ${root} && [ -f ${root}/index.html ] || printf "<h1>${name}</h1><p>OCP Panel tarafından oluşturuldu.</p>" > ${root}/index.html'`, 10000);
     if (reseller) sudo(`chown -R ${reseller.username}:${reseller.username} ${root}`, 10000);
 
     // vhost + hosts

@@ -85,6 +85,7 @@ Panel, klasik cPanel X3 arayüzünü birebir taklit eder; ancak arkasında **ger
 ### Gereksinimler
 - Linux (Debian/Ubuntu test edildi — Raspberry Pi 5 ✓)
 - Node.js ≥ 18
+- nginx (domain/vhost yönetimi için — `sudo apt install nginx`)
 - sudo yetkisi (servis yönetimi için)
 
 ### 1. Klon ve bağımlılıklar
