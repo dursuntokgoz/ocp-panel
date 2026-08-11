@@ -154,6 +154,7 @@ Panel, klasik cPanel X3 arayüzünü birebir taklit eder; ancak arkasında **ger
 - postfix + dovecot (e-posta yönetimi için — `sudo apt install postfix dovecot-imapd dovecot-pop3d`)
 - vsftpd (FTP hesap yönetimi için — `sudo apt install vsftpd`)
 - php8.4-fpm + php-mysql + php-intl + php-mbstring + php-xml + php-curl (Roundcube webmail için)
+- OpenSSL (self-signed SSL için — `sudo apt install openssl`)
 - sudo yetkisi (servis yönetimi için)
 
 ### 1. Klon ve bağımlılıklar
@@ -234,7 +235,7 @@ ocp-panel/
 - [ ] Gerçek zamanlı grafikler (WebSocket/SSE)
 - [x] FTP hesapları (vsftpd)
 - [x] Webmail (Roundcube)
-- [ ] HTTPS (self-signed)
+- [x] HTTPS (self-signed SSL)
 
 ---
 

@@ -42,13 +42,19 @@
 - [x] WHM Email Accounts tablosunda 📧 Webmail butonu
 - [x] Domain bazlı webmail URL: `http://webmail.<domain>`
 
+### 🔐 HTTPS (Self-signed SSL)
+- [x] Self-signed sertifika (OpenSSL, 2048-bit RSA, 365 gün)
+- [x] Node.js native HTTPS server (port 2083)
+- [x] Panel + Webmail (nginx) her ikisi de SSL
+- [x] Sertifika yolu: `~/ocp-panel/ssl/ocp-panel.{key,crt}` (panel kullanıcısı erişebilir)
+- [x] Tarayıcı uyarısı: self-signed olduğu için "Güvenli değil" uyarısı gelir, "Gelişmiş" → "Devam et" ile geçilebilir
+
 ### 📧 E-posta (gerçek postfix + dovecot)
 - [x] postfix sanal domainler (`virtual_mailbox_domains` + map'ler, panelden senkronize)
 - [x] dovecot passwd-file auth — SMTP SASL (587) + IMAP (143) + POP3 (110)
 - [x] maildir teslimi (`/var/mail/vhosts/<domain>/<user>/`), vmail (uid 5000)
 - [x] Hesap kotası (`quota_rule` → dovecot) + paket e-posta limiti kontrolü
 - [x] Kurulum scripti: `deploy/mail-stack-setup.sh`
-- [ ] Webmail (Roundcube)
 
 ### Frontend (cPanel X3 teması korunarak)
 - [x] Login ekranı (overlay)
@@ -57,10 +63,7 @@
 - [x] Sidebar istatistikleri gerçek veriler (disk, RAM, servis, proses, docker, sıcaklık)
 
 ## 🔜 Gelecek
-- [ ] FTP hesapları (vsftpd entegrasyonu)
-- [ ] Webmail (Roundcube)
 - [ ] Gerçek zamanlı izleme (SSE/WebSocket ile CPU/RAM grafikleri)
 - [ ] Docker yönetimi (konteyner başlat/durdur/log)
 - [ ] Yedekleme otomasyonu (panel üzerinden)
 - [ ] Çok kullanıcılı yetkilendirme (rol bazlı)
-- [ ] HTTPS (self-signed sertifika ile 2083'te SSL)

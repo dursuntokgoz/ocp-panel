@@ -2,11 +2,12 @@
 /* ============================================================
  * OCP Panel — Gerçek Sunucu Kontrol Paneli
  * cPanel X3 teması + Node.js backend (auth + sistem API)
- * Port: 2083 (cPanel temalı)
+ * Port: 2083 (HTTPS) — cPanel temalı
  * ============================================================ */
 'use strict';
 
 const express = require('express');
+const https = require('https');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -89,13 +90,33 @@ app.get('/', (req, res) => res.sendFile(path.join(ROOT, 'index.html')));
 
 module.exports = { PANEL_PASSWORD, issueToken, sessions };
 
-app.listen(PORT, '0.0.0.0', () => {
+// HTTPS server (self-signed certificate)
+const SSL_KEY = process.env.SSL_KEY || path.join(__dirname, '..', 'ssl', 'ocp-panel.key');
+const SSL_CERT = process.env.SSL_CERT || path.join(__dirname, '..', 'ssl', 'ocp-panel.crt');
+
+let sslOptions = null;
+try {
+  sslOptions = {
+    key: fs.readFileSync(SSL_KEY),
+    cert: fs.readFileSync(SSL_CERT)
+  };
+} catch (e) {
+  console.log('[ocp] SSL sertifika okunamadı, HTTP modunda çalışıyor:', e.message);
+}
+
+const server = sslOptions
+  ? https.createServer(sslOptions, app)
+  : app;
+
+server.listen(PORT, '0.0.0.0', () => {
+  const protocol = sslOptions ? 'https' : 'http';
   console.log('┌──────────────────────────────────────────────┐');
   console.log('│  OCP PANEL — Gerçek Sunucu Kontrol Paneli   │');
   console.log('└──────────────────────────────────────────────┘');
   const ip = (() => { try { return execSync(`hostname -I`).toString().trim().split(' ')[0]; } catch (e) { return 'localhost'; } })();
-  console.log(`  Adres   : http://${ip}:${PORT}`);
+  console.log(`  Adres   : ${protocol}://${ip}:${PORT}`);
   console.log(`  Port    : ${PORT}`);
+  console.log(`  SSL     : ${sslOptions ? '✓ Aktif (self-signed)' : '✗ Kapalı'}`);
   console.log(`  Parola  : ${PANEL_PASSWORD}`);
   console.log(`  Dosya   : ${PASSWORD_FILE}`);
   console.log('────────────────────────────────────────────────');
