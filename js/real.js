@@ -2105,59 +2105,279 @@ Object.assign(cPanelSubPages, {
   },
 
   /* ---------- Email Disk Usage ---------- */
-  whmEmailDisk() {
+  /* ==========================================================
+   * WHM — FTP FUNCTIONS (gerçek vsftpd sanal kullanıcıları)
+   * ========================================================== */
+
+  /* ---------- FTP Accounts ---------- */
+  whmFtp() {
     const html = `
-      ${this.renderBreadcrumb('WHM', 'Email Functions » Email Disk Usage')}
+      ${this.renderBreadcrumb('WHM', 'FTP Functions » FTP Accounts')}
       <div class="subpage-container">
-        ${this.header('💾 Email Disk Usage', 'Maildir kullanımı — hesap bazında kota doluluk oranı')}
-        <div id="edBody">${loadingBox('Kullanım hesaplanıyor…')}</div>
+        ${this.header('📁 FTP Accounts', 'vsftpd sanal kullanıcıları — her hesap bir domain kök dizinine bağlanır')}
+        <div class="x3-form-box" style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
+          <input type="text" id="wfFilter" class="x3-input" placeholder="Kullanıcı ara…" style="flex:1" oninput="cPanelSubPages.loadWhmFtp()">
+          <button class="btn-x3-primary" onclick="cPanelSubPages.loadWhmFtp()">🔄 Yenile</button>
+          <div id="wfCount" style="font-size:12px;color:#889"></div>
+        </div>
+        <div id="wfBody">${loadingBox('FTP hesapları yükleniyor…')}</div>
+      </div>`;
+    setTimeout(() => this.loadWhmFtp(), 50);
+    return html;
+  },
+
+  loadWhmFtp() {
+    const body = document.getElementById('wfBody');
+    if (!body) return;
+    const q = ((document.getElementById('wfFilter') || {}).value || '').toLowerCase();
+    PanelAPI.getFtp().then(d => {
+      const cnt = document.getElementById('wfCount');
+      if (cnt) cnt.textContent = d.total + ' hesap';
+      const list = d.ftp.filter(a => !q || a.user.toLowerCase().includes(q));
+      if (!list.length) {
+        body.innerHTML = '<div class="x3-form-box" style="text-align:center;color:#889;padding:24px">FTP hesabı yok — Create FTP Account ile oluşturun</div>';
+        return;
+      }
+      body.innerHTML = `
+        <div class="x3-form-box" style="padding:0;overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead><tr style="text-align:left;border-bottom:2px solid #e5e9f0;color:#556">
+              <th style="padding:8px">Kullanıcı</th><th style="padding:8px">Sistem Kullanıcısı</th><th style="padding:8px">Dizin</th>
+              <th style="padding:8px">Kullanım</th><th style="padding:8px">Oluşturma</th><th style="padding:8px;text-align:right">Aksiyon</th>
+            </tr></thead>
+            <tbody>${list.map(a => `
+              <tr>
+                <td style="padding:8px"><strong>${esc(a.user)}</strong></td>
+                <td style="padding:8px"><span class="badge-active" style="font-size:10px">${esc(a.guest)}</span></td>
+                <td style="padding:8px;font-size:11px;color:#667"><code>${esc(a.root)}</code></td>
+                <td style="padding:8px;font-size:12px">${esc(a.sizeH)}</td>
+                <td style="padding:8px;font-size:11px;color:#889">${esc((a.created || '').slice(0, 10) || '—')}</td>
+                <td style="padding:8px;text-align:right;white-space:nowrap">
+                  <button class="btn-x3-sm" onclick="cPanelSubPages.whmFtpModify('${esc(a.user)}')">✏️</button>
+                  <button class="btn-x3-sm danger" onclick="cPanelSubPages.whmFtpDelete('${esc(a.user)}')">🗑</button>
+                </td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }).catch(e => { body.innerHTML = errBox(e.message); });
+  },
+
+  /* ---------- Create FTP Account ---------- */
+  whmFtpCreate() {
+    const html = `
+      ${this.renderBreadcrumb('WHM', 'FTP Functions » Create FTP Account')}
+      <div class="subpage-container">
+        ${this.header('➕ Create FTP Account', 'vsftpd sanal kullanıcısı — domain kök dizinine anında erişim')}
+        <div class="x3-form-box">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+            <div>
+              <label style="font-size:12px;color:#667">Kullanıcı Adı *</label>
+              <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+                <input type="text" id="cfUser" class="x3-input" placeholder="ftp1" style="flex:1">
+                <span style="color:#889">@</span>
+                <select id="cfDomain" class="x3-input" style="flex:1.4"></select>
+              </div>
+            </div>
+            <div><label style="font-size:12px;color:#667">Parola *</label><input type="password" id="cfPass" class="x3-input" placeholder="en az 6 karakter"></div>
+            <div><label style="font-size:12px;color:#667">Dizin (boş = domain kökü)</label><input type="text" id="cfRoot" class="x3-input" placeholder="/home/kullanici/public_html"></div>
+          </div>
+          <div style="margin-top:14px"><button class="btn-x3-primary" onclick="cPanelSubPages.whmFtpCreateSubmit()">➕ Hesap Oluştur</button></div>
+          <div id="cfMsg" style="margin-top:10px;font-size:13px"></div>
+        </div>
       </div>`;
     setTimeout(() => {
-      PanelAPI.getEmails().then(d => {
-        const el = document.getElementById('edBody');
-        if (!el) return;
-        if (!d.emails.length) { el.innerHTML = '<div class="x3-form-box" style="text-align:center;color:#889;padding:24px">E-posta hesabı yok</div>'; return; }
-        const maxSize = Math.max(...d.emails.map(a => a.size), 1);
-        const domainTotals = Object.entries(d.totals || {}).map(([dom, sz]) => ({ dom, sz })).sort((a, b) => b.sz - a.sz);
-        el.innerHTML = `
-          <div class="x3-form-box" style="padding:0;overflow-x:auto">
-            <table style="width:100%;border-collapse:collapse;font-size:13px">
-              <thead><tr style="text-align:left;border-bottom:2px solid #e5e9f0;color:#556">
-                <th style="padding:8px">E-posta</th><th style="padding:8px">Kullanım</th><th style="padding:8px">Kota</th><th style="padding:8px">Doluluk</th>
-              </tr></thead>
-              <tbody>${d.emails.map(a => {
-                const pct = a.quotaMB ? Math.min(100, Math.round((a.size / (a.quotaMB * 1048576)) * 100)) : null;
-                const barW = Math.max(2, Math.round((a.size / maxSize) * 100));
-                return `
-                <tr>
-                  <td style="padding:8px"><strong>${esc(a.email)}</strong></td>
-                  <td style="padding:8px;min-width:160px">
-                    <div style="display:flex;align-items:center;gap:6px">
-                      <div style="flex:1;height:8px;background:#eef1f5;border-radius:4px;overflow:hidden"><div style="width:${barW}%;height:100%;background:${pct === null ? '#38bdf8' : pct > 90 ? '#ef4444' : pct > 60 ? '#f59e0b' : '#22c55e'}"></div></div>
-                      <span style="font-size:11px;color:#667;white-space:nowrap">${esc(a.sizeH)}</span>
-                    </div>
-                  </td>
-                  <td style="padding:8px">${a.quotaMB ? a.quotaMB + ' MB' : '∞'}</td>
-                  <td style="padding:8px;font-size:12px">${pct === null ? '—' : pct + '%'}</td>
-                </tr>`;
-              }).join('')}
-              </tbody>
-            </table>
-          </div>
-          <div class="x3-form-box" style="margin-top:12px;padding:12px 16px">
-            <strong style="font-size:13px">Domain Toplamları</strong>
-            ${domainTotals.map(t => `
-              <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
-                <span style="font-size:12px;width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.dom)}</span>
-                <div style="flex:1;height:8px;background:#eef1f5;border-radius:4px;overflow:hidden"><div style="width:${Math.max(2, Math.round((t.sz / Math.max(...domainTotals.map(x => x.sz), 1)) * 100))}%;height:100%;background:#6366f1"></div></div>
-                <span style="font-size:12px;color:#667">${fmtBytes(t.sz)}</span>
-              </div>`).join('')}
-          </div>`;
-      }).catch(e => {
-        const el = document.getElementById('edBody');
-        if (el) el.innerHTML = errBox(e.message);
-      });
+      PanelAPI.getDomains().then(d => {
+        const sel = document.getElementById('cfDomain');
+        if (sel) sel.innerHTML = d.domains.map(x => `<option value="${esc(x.name)}">${esc(x.name)}</option>`).join('') || '<option value="">— domain yok —</option>';
+      }).catch(() => {});
     }, 50);
     return html;
+  },
+
+  whmFtpCreateSubmit() {
+    const msg = document.getElementById('cfMsg');
+    const user = (document.getElementById('cfUser') || {}).value.trim().toLowerCase();
+    const domain = (document.getElementById('cfDomain') || {}).value;
+    const pass = (document.getElementById('cfPass') || {}).value;
+    const root = (document.getElementById('cfRoot') || {}).value.trim();
+    if (!user || !domain) { if (msg) msg.innerHTML = '<span style="color:#c0392b">Kullanıcı adı ve domain gerekli</span>'; return; }
+    const data = { user: user + '@' + domain, password: pass };
+    if (root) data.root = root;
+    PanelAPI.addFtp(data).then(d => {
+      if (msg) msg.innerHTML = `<span style="color:#27ae60">✅ FTP hesabı oluşturuldu: <strong>${esc(d.user)}</strong> → ${esc(d.root)} (${esc(d.guest)})</span>`;
+      this.toast('✅ FTP hesabı oluşturuldu: ' + d.user);
+      ['cfUser', 'cfPass', 'cfRoot'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    }).catch(e => {
+      if (msg) msg.innerHTML = `<span style="color:#c0392b">❌ ${esc(e.message)}</span>`;
+    });
+  },
+
+  /* ---------- Modify FTP Account ---------- */
+  whmFtpModify(user) {
+    if (!user) {
+      const html = `
+        ${this.renderBreadcrumb('WHM', 'FTP Functions » Modify FTP Account')}
+        <div class="subpage-container">
+          ${this.header('✏️ Modify FTP Account', 'Parola ve dizin değişikliği — anında etkili')}
+          <div class="x3-form-box" style="margin-bottom:12px">
+            <label style="font-size:12px;color:#667">Hesap Seç</label>
+            <select id="mfSel" class="x3-input" onchange="cPanelSubPages.whmFtpModify(this.value)" style="margin-top:4px"></select>
+          </div>
+          <div id="mfBody"></div>
+        </div>`;
+      setTimeout(() => {
+        PanelAPI.getFtp().then(d => {
+          const sel = document.getElementById('mfSel');
+          if (sel) sel.innerHTML = d.ftp.map(a => `<option value="${esc(a.user)}">${esc(a.user)}</option>`).join('') || '<option value="">— hesap yok —</option>';
+        }).catch(() => {});
+      }, 50);
+      return html;
+    }
+    const body = document.getElementById('mfBody');
+    const sel = document.getElementById('mfSel');
+    if (sel) sel.value = user;
+    if (!body) {
+      const container = document.getElementById('mainContentArea');
+      if (container) {
+        container.innerHTML = this.whmFtpModify();
+        setTimeout(() => {
+          const s2 = document.getElementById('mfSel');
+          if (s2) { s2.value = user; this.loadWhmFtpModify(user); }
+        }, 300);
+      }
+      return;
+    }
+    this.loadWhmFtpModify(user);
+  },
+
+  loadWhmFtpModify(user) {
+    const body = document.getElementById('mfBody');
+    if (!body || !user) return;
+    PanelAPI.getFtp().then(d => {
+      const a = d.ftp.find(x => x.user === user);
+      if (!a) { body.innerHTML = errBox('Hesap bulunamadı'); return; }
+      body.innerHTML = `
+        <div class="x3-form-box">
+          <h3 style="margin-top:0">Hesap: <code>${esc(a.user)}</code></h3>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+            <div><label style="font-size:12px;color:#667">Yeni Parola (boş = değişmez)</label><input type="password" id="mfPass" class="x3-input" placeholder="en az 6 karakter"></div>
+            <div><label style="font-size:12px;color:#667">Dizin</label><input type="text" id="mfRoot" class="x3-input" value="${esc(a.root)}"></div>
+          </div>
+          <div style="margin-top:14px"><button class="btn-x3-primary" onclick="cPanelSubPages.whmFtpModifySubmit('${esc(a.user)}')">💾 Kaydet</button></div>
+          <div id="mfMsg" style="margin-top:10px;font-size:13px"></div>
+        </div>`;
+    }).catch(e => { body.innerHTML = errBox(e.message); });
+  },
+
+  whmFtpModifySubmit(user) {
+    const pass = (document.getElementById('mfPass') || {}).value;
+    const root = (document.getElementById('mfRoot') || {}).value.trim();
+    const msg = document.getElementById('mfMsg');
+    const data = {};
+    if (pass) data.password = pass;
+    if (root) data.root = root;
+    if (!pass && !root) { if (msg) msg.innerHTML = '<span style="color:#c0392b">Değişiklik yok</span>'; return; }
+    PanelAPI.updateFtp(user, data).then(d => {
+      if (msg) msg.innerHTML = `<span style="color:#27ae60">✅ Güncellendi: <strong>${esc(d.user)}</strong>${d.passwordChanged ? ' — parola değişti' : ''}${d.rootChanged ? ' — dizin değişti' : ''}</span>`;
+      this.toast('✅ FTP hesabı güncellendi: ' + user);
+    }).catch(e => {
+      if (msg) msg.innerHTML = `<span style="color:#c0392b">❌ ${esc(e.message)}</span>`;
+    });
+  },
+
+  /* ---------- Delete FTP Account ---------- */
+  whmFtpDelete(user) {
+    if (!user) {
+      const html = `
+        ${this.renderBreadcrumb('WHM', 'FTP Functions » Delete FTP Account')}
+        <div class="subpage-container">
+          ${this.header('🗑 Delete FTP Account', 'Sanal kullanıcı silinir — dosyalar kalır')}
+          <div class="x3-form-box" style="margin-bottom:12px">
+            <label style="font-size:12px;color:#667">Hesap Seç</label>
+            <select id="dfSel" class="x3-input" style="margin-top:4px"></select>
+          </div>
+          <button class="btn-x3-primary danger" onclick="cPanelSubPages.whmFtpDeleteSubmit()">🗑 Hesabı Sil</button>
+          <div id="dfMsg" style="margin-top:10px;font-size:13px"></div>
+        </div>`;
+      setTimeout(() => {
+        PanelAPI.getFtp().then(d => {
+          const sel = document.getElementById('dfSel');
+          if (sel) sel.innerHTML = d.ftp.map(a => `<option value="${esc(a.user)}">${esc(a.user)}</option>`).join('') || '<option value="">— hesap yok —</option>';
+        }).catch(() => {});
+      }, 50);
+      return html;
+    }
+    if (!confirm(`"${user}" FTP hesabı silinsin mi?`)) return;
+    PanelAPI.deleteFtp(user).then(d => {
+      this.toast('🗑 FTP hesabı silindi: ' + d.user);
+      const body = document.getElementById('wfBody');
+      if (body) this.loadWhmFtp();
+    }).catch(e => this.toast('❌ ' + e.message));
+  },
+
+  whmFtpDeleteSubmit() {
+    const sel = document.getElementById('dfSel');
+    const user = sel ? sel.value : '';
+    if (!user) { const msg = document.getElementById('dfMsg'); if (msg) msg.innerHTML = '<span style="color:#c0392b">Hesap seçin</span>'; return; }
+    if (!confirm(`"${user}" FTP hesabı silinsin mi?`)) return;
+    PanelAPI.deleteFtp(user).then(d => {
+      const msg = document.getElementById('dfMsg');
+      if (msg) msg.innerHTML = `<span style="color:#27ae60">✅ Silindi: <strong>${esc(d.user)}</strong></span>`;
+      this.toast('🗑 FTP hesabı silindi: ' + d.user);
+      PanelAPI.getFtp().then(r => {
+        const s2 = document.getElementById('dfSel');
+        if (s2) s2.innerHTML = r.ftp.map(a => `<option value="${esc(a.user)}">${esc(a.user)}</option>`).join('') || '<option value="">— hesap yok —</option>';
+      }).catch(() => {});
+    }).catch(e => {
+      const msg = document.getElementById('dfMsg');
+      if (msg) msg.innerHTML = `<span style="color:#c0392b">❌ ${esc(e.message)}</span>`;
+    });
+  },
+
+  /* ---------- FTP Connections ---------- */
+  whmFtpConnections() {
+    const html = `
+      ${this.renderBreadcrumb('WHM', 'FTP Functions » FTP Connections')}
+      <div class="subpage-container">
+        ${this.header('🔌 FTP Connections', 'Aktif FTP oturumları + son giriş kayıtları (vsftpd.log)')}
+        <div class="x3-form-box" style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
+          <button class="btn-x3-primary" onclick="cPanelSubPages.loadWhmFtpConnections()">🔄 Yenile</button>
+          <div style="font-size:12px;color:#889" id="fcCount"></div>
+        </div>
+        <div id="fcBody">${loadingBox('Bağlantılar alınıyor…')}</div>
+      </div>`;
+    setTimeout(() => this.loadWhmFtpConnections(), 50);
+    return html;
+  },
+
+  loadWhmFtpConnections() {
+    const body = document.getElementById('fcBody');
+    if (!body) return;
+    PanelAPI.getFtpConnections().then(d => {
+      const cnt = document.getElementById('fcCount');
+      if (cnt) cnt.textContent = d.sessions.length + ' aktif bağlantı';
+      body.innerHTML = `
+        <div class="x3-form-box" style="padding:0;overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead><tr style="text-align:left;border-bottom:2px solid #e5e9f0;color:#556">
+              <th style="padding:8px">Yerel</th><th style="padding:8px">Uzak (IP)</th><th style="padding:8px">Durum</th>
+            </tr></thead>
+            <tbody>${d.sessions.length ? d.sessions.map(s => `
+              <tr>
+                <td style="padding:8px;font-family:monospace;font-size:12px">${esc(s.local)}</td>
+                <td style="padding:8px;font-family:monospace;font-size:12px">${esc(s.peer)}</td>
+                <td style="padding:8px"><span class="badge-active">Bağlı</span></td>
+              </tr>`).join('') : '<tr><td colspan="3" style="padding:16px;text-align:center;color:#889">Aktif FTP bağlantısı yok</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+        <div class="x3-form-box" style="margin-top:12px;padding:12px 16px">
+          <strong style="font-size:13px">Son Giriş Kayıtları (vsftpd.log)</strong>
+          <div style="margin-top:8px;font-family:ui-monospace,monospace;font-size:11px;color:#667;max-height:220px;overflow-y:auto;line-height:1.6">
+            ${d.log.length ? esc(d.log.join('\n')).replace(/\n/g, '<br>') : '<span style="color:#889">Kayıt yok</span>'}
+          </div>
+        </div>`;
+    }).catch(e => { body.innerHTML = errBox(e.message); });
   }
 });

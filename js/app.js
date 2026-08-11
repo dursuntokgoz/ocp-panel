@@ -40,6 +40,12 @@ const cPanelApp = {
         { name: 'Modify Email Account', icon: 'modifyEmail', action: 'whmEmailModify' },
         { name: 'Delete Email Account', icon: 'deleteEmail', action: 'whmEmailDelete' },
         { name: 'Email Disk Usage', icon: 'emailDiskUsage', action: 'whmEmailDisk' },
+        /* --- FTP Functions --- */
+        { name: 'FTP Accounts', icon: 'ftpAccounts', action: 'whmFtp' },
+        { name: 'Create FTP Account', icon: 'createFtp', action: 'whmFtpCreate' },
+        { name: 'Modify FTP Account', icon: 'modifyFtp', action: 'whmFtpModify' },
+        { name: 'Delete FTP Account', icon: 'deleteFtp', action: 'whmFtpDelete' },
+        { name: 'FTP Connections', icon: 'ftpConnections', action: 'whmFtpConnections' },
       ]
     },
     {

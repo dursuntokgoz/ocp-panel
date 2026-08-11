@@ -40,11 +40,19 @@ Panel, klasik cPanel X3 arayüzünü birebir taklit eder; ancak arkasında **ger
 |---|---|
 | ![Create Email](screenshots/whm-email-create.png) | ![Email Disk](screenshots/whm-email-disk.png) |
 
+| FTP Accounts (WHM) | Create FTP Account (WHM) |
+|---|---|
+| ![FTP Accounts](screenshots/whm-ftp-accounts.png) | ![Create FTP](screenshots/whm-ftp-create.png) |
+
+| FTP Connections (WHM) |
+|---|
+| ![FTP Connections](screenshots/whm-ftp-connections.png) |
+
 ---
 
 ## ✨ Özellikler
 
-### 🗄️ Backend API (18 uç)
+### 🗄️ Backend API (24 uç)
 | Endpoint | Açıklama |
 |---|---|
 | `POST /api/login` | Parola ile oturum → Bearer token (24 saat) |
@@ -79,6 +87,11 @@ Panel, klasik cPanel X3 arayüzünü birebir taklit eder; ancak arkasında **ger
 | `POST /api/emails` | E-posta hesabı oluştur → dovecot passwd-file + maildir + postfix maps |
 | `PUT /api/emails/:email` | Parola / kota değiştir (dovecot auth anında etkili) |
 | `DELETE /api/emails/:email` | Hesap + maildir silme |
+| `GET /api/ftp-accounts` | FTP hesapları (disk kullanımı + bağlantı sayısı) |
+| `POST /api/ftp-accounts` | FTP hesabı oluştur → vsftpd passwd-file |
+| `PUT /api/ftp-accounts/:user` | Parola değiştir |
+| `DELETE /api/ftp-accounts/:user` | FTP hesabı silme (passwd-file + dizin) |
+| `GET /api/ftp-connections` | Canlı FTP bağlantıları (process + port monitoring) |
 
 ### 🖥️ Frontend Modülleri
 - **WHM (WebHost Manager) — gerçek WHM menü yapısı:**
@@ -88,6 +101,7 @@ Panel, klasik cPanel X3 arayüzünü birebir taklit eder; ancak arkasında **ger
   - **Resellers:** Reseller Center, Create a Reseller, Reseller Modification, Terminate a Reseller
   - **DNS Functions:** DNS Zone Manager, Add a DNS Zone, Edit DNS Zone
   - **Email Functions:** Email Accounts, Create an Email Account, Modify Email Account, Delete Email Account, Email Disk Usage
+  - **FTP Functions:** FTP Accounts, Create FTP Account, Modify FTP Account, Delete FTP Account, FTP Connections
 - **Gerçek veriyle çalışan cPanel modülleri:** Terminal, File Manager, Process Manager, Cron Jobs, Error Logs, Disk Usage, MySQL, Resource Usage, CPU/Concurrent, Visitors, Bandwidth
 - **Tema korumalı simülasyon modülleri:** Mail, Domains, Security, Software kategorileri (cPanel klonu olarak)
 - Canlı sidebar istatistikleri: disk, RAM, çalışan servis, proses, docker, sıcaklık
@@ -112,6 +126,15 @@ Panel, klasik cPanel X3 arayüzünü birebir taklit eder; ancak arkasında **ger
 - **E-posta silme:** hesap + maildir + postfix maps temizlenir
 - **SMTP gönderim:** aynı sunucudan doğrudan teslim (`virtual_transport`), MX kaydı DNS zone'da hazır
 
+### 📁 WHM — FTP Functions (gerçek vsftpd)
+- **Gerçek FTP sunucusu:** vsftpd virtual user modu (passwd-file auth)
+- **Hesap oluşturma:** vsftpd passwd-file'a kayıt, FTP kök dizini otomatik (`/home/ftp/<user>`)
+- **Parola değişimi:** anında etkili (passwd-file yeniden yazılır)
+- **Hesap silme:** passwd-file kaydı + FTP dizini temizlenir
+- **Disk kullanımı:** `du` ile canlı hesap başına doluluk
+- **Bağlantı izleme:** canlı `vsftpd` process'leri + `ss` ile aktif FTP bağlantıları
+- **Paket limiti:** paketteki FTP limiti aşılınca yeni hesap reddedilir
+
 ---
 
 ## 🚀 Kurulum
@@ -121,6 +144,7 @@ Panel, klasik cPanel X3 arayüzünü birebir taklit eder; ancak arkasında **ger
 - Node.js ≥ 18
 - nginx (domain/vhost yönetimi için — `sudo apt install nginx`)
 - postfix + dovecot (e-posta yönetimi için — `sudo apt install postfix dovecot-imapd dovecot-pop3d`)
+- vsftpd (FTP hesap yönetimi için — `sudo apt install vsftpd`)
 - sudo yetkisi (servis yönetimi için)
 
 ### 1. Klon ve bağımlılıklar
@@ -199,7 +223,7 @@ ocp-panel/
 - [x] WHM: hesap/reseller/paket/DNS yönetimi (nginx vhost + /etc/hosts)
 - [x] WHM: e-posta hesapları (postfix + dovecot, SMTP AUTH, IMAP/POP3, kota)
 - [ ] Gerçek zamanlı grafikler (WebSocket/SSE)
-- [ ] FTP hesapları (vsftpd)
+- [x] FTP hesapları (vsftpd)
 - [ ] Webmail (Roundcube)
 - [ ] HTTPS (self-signed)
 

@@ -567,6 +567,159 @@ server {
     res.json({ ok: true, email, removed: true });
   });
 
+  /* ==========================================================
+   * FTP FUNCTIONS — gerçek vsftpd sanal kullanıcıları
+   * Kullanıcılar : /etc/vsftpd/vusers.txt → vusers.db (PAM userdb)
+   * Kişiye özel  : /etc/vsftpd/user_conf/<kullanici> (guest+root)
+   * ========================================================== */
+  const FTP_VUSERS = '/etc/vsftpd/vusers.txt';
+  const FTP_DB = '/etc/vsftpd/vusers.db';
+  const FTP_CONF_DIR = '/etc/vsftpd/user_conf';
+  const FTP_USER_RE = /^[a-z0-9][a-z0-9._-]{0,63}@([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i;
+
+  // vusers.txt → { user: password } haritası (dahili kullanım)
+  function readFtpPasswords() {
+    try {
+      const raw = fs.readFileSync(FTP_VUSERS, 'utf8');
+      const lines = raw.split('\n').filter(Boolean);
+      const map = {};
+      for (let i = 0; i + 1 < lines.length; i += 2) map[lines[i]] = lines[i + 1];
+      return map;
+    } catch (e) { return {}; }
+  }
+
+  // kullanıcı conf dosyasını oku → { guest, root }
+  function readFtpConf(user) {
+    try {
+      const conf = fs.readFileSync(path.join(FTP_CONF_DIR, user), 'utf8');
+      const guest = (conf.match(/guest_username=(.+)/) || [])[1] || '';
+      const root = (conf.match(/local_root=(.+)/) || [])[1] || '';
+      return { guest, root };
+    } catch (e) { return { guest: '', root: '' }; }
+  }
+
+  // vusers.txt + db'yi yeniden yazar (parola yoksa mevcut korunur)
+  function writeFtpUsers(accounts) {
+    const cur = readFtpPasswords();
+    const lines = [];
+    accounts.forEach(a => {
+      lines.push(a.user, a.password || cur[a.user] || '');
+    });
+    const txt = lines.join('\n') + (lines.length ? '\n' : '');
+    const tmp = '/tmp/ocp-vusers.txt';
+    fs.writeFileSync(tmp, txt);
+    const r = sudo(`sh -c 'cp ${tmp} ${FTP_VUSERS} && chmod 640 ${FTP_VUSERS} && db_load -T -t hash -f ${FTP_VUSERS} ${FTP_DB} && chmod 640 ${FTP_DB} && rm -f ${tmp}'`, 15000);
+    if (!r.ok) { try { fs.unlinkSync(tmp); } catch (e) {} }
+    return r;
+  }
+
+  // kullanıcı conf dosyası yaz (tmp + sudo cp)
+  function writeFtpConf(user, guest, root) {
+    const tmp = '/tmp/ocp-ftp-conf-' + user.replace(/[^a-z0-9@._-]/gi, '_');
+    fs.writeFileSync(tmp, `guest_username=${guest}\nlocal_root=${root}\n`);
+    const r = sudo(`cp ${tmp} "${path.join(FTP_CONF_DIR, user)}" && rm -f ${tmp}`, 10000);
+    if (!r.ok) { try { fs.unlinkSync(tmp); } catch (e) {} }
+    return r;
+  }
+
+  // --- FTP hesaplarını listele ---
+  router.get('/ftp', auth, (req, res) => {
+    const db = loadDB();
+    const pwMap = readFtpPasswords();
+    const accs = Object.entries(pwMap).map(([user, pw]) => {
+      const conf = readFtpConf(user);
+      const m = user.match(/^(.+)@(.+)$/);
+      const dom = m ? db.domains.find(d => d.name === m[2]) : null;
+      const meta = (db.ftp || []).find(f => f.user === user) || {};
+      return {
+        user,
+        guest: conf.guest,
+        root: conf.root || (dom ? dom.root : ''),
+        domain: m ? m[2] : '',
+        size: conf.root ? sudoDirSize(conf.root) : 0,
+        sizeH: fmtBytes(conf.root ? sudoDirSize(conf.root) : 0),
+        created: meta.created || ''
+      };
+    }).sort((a, b) => a.user.localeCompare(b.user));
+    res.json({ ok: true, ftp: accs, total: accs.length });
+  });
+
+  // --- FTP hesabı oluştur ---
+  router.post('/ftp', auth, (req, res) => {
+    const b = req.body || {};
+    const user = String(b.user || '').toLowerCase().trim();
+    if (!FTP_USER_RE.test(user)) return res.status(400).json({ error: 'Kullanıcı formatı: kullanici@domain (örn: ftp1@musteri.com)' });
+    if (!b.password || String(b.password).length < 6) return res.status(400).json({ error: 'Parola en az 6 karakter olmalı' });
+    if (readFtpPasswords()[user]) return res.status(400).json({ error: 'Bu FTP kullanıcısı zaten var' });
+    const db = loadDB();
+    const m = user.match(/^(.+)@(.+)$/);
+    const dom = db.domains.find(d => d.name === m[2]);
+    if (!dom) return res.status(400).json({ error: `"${m[2]}" domaini WHM'de kayıtlı değil` });
+    const reseller = db.resellers.find(r => r.username === dom.reseller);
+    if (!reseller) return res.status(400).json({ error: `"${m[2]}" domaininin reseller'ı yok — FTP için domain sahibi gerekli` });
+    const root = String(b.root || dom.root || `/home/${reseller.username}/public_html`).replace(/\/+$/, '');
+    sudo(`mkdir -p ${root}`, 10000);
+    const r1 = writeFtpUsers(Object.keys(readFtpPasswords()).map(u => ({ user: u })).concat([{ user, password: String(b.password) }]));
+    if (!r1.ok) return res.status(500).json({ error: 'vusers.db yazılamadı: ' + r1.output.trim() });
+    const r2 = writeFtpConf(user, reseller.username, root);
+    if (!r2.ok) return res.status(500).json({ error: 'Kullanıcı ayarı yazılamadı: ' + r2.output.trim() });
+    db.ftp = db.ftp || [];
+    db.ftp.push({ user, domain: m[2], root, created: new Date().toISOString(), owner: reseller.username });
+    saveDB(db);
+    res.json({ ok: true, user, guest: reseller.username, root, immediate: true });
+  });
+
+  // --- Parola / dizin değiştir ---
+  router.put('/ftp/:user', auth, (req, res) => {
+    const user = String(req.params.user || '').toLowerCase();
+    const cur = readFtpPasswords();
+    if (!(user in cur)) return res.status(404).json({ error: 'FTP kullanıcısı bulunamadı' });
+    const b = req.body || {};
+    const pw = b.password ? String(b.password) : null;
+    if (pw && pw.length < 6) return res.status(400).json({ error: 'Parola en az 6 karakter olmalı' });
+    const r = writeFtpUsers(Object.keys(cur).map(u => ({ user: u, password: u === user && pw ? pw : undefined })));
+    if (!r.ok) return res.status(500).json({ error: 'vusers.db yazılamadı: ' + r.output.trim() });
+    if (b.root) {
+      const conf = readFtpConf(user);
+      const r2 = writeFtpConf(user, conf.guest, String(b.root).replace(/\/+$/, ''));
+      if (!r2.ok) return res.status(500).json({ error: 'Kullanıcı ayarı yazılamadı: ' + r2.output.trim() });
+    }
+    res.json({ ok: true, user, passwordChanged: !!pw, rootChanged: !!b.root });
+  });
+
+  // --- FTP hesabı sil ---
+  router.delete('/ftp/:user', auth, (req, res) => {
+    const user = String(req.params.user || '').toLowerCase();
+    const cur = readFtpPasswords();
+    if (!(user in cur)) return res.status(404).json({ error: 'FTP kullanıcısı bulunamadı' });
+    const r1 = writeFtpUsers(Object.keys(cur).filter(u => u !== user).map(u => ({ user: u })));
+    if (!r1.ok) return res.status(500).json({ error: 'vusers.db yazılamadı: ' + r1.output.trim() });
+    sudo(`rm -f "${path.join(FTP_CONF_DIR, user)}"`, 10000);
+    const db = loadDB();
+    db.ftp = (db.ftp || []).filter(f => f.user !== user);
+    saveDB(db);
+    res.json({ ok: true, user, removed: true });
+  });
+
+  // --- Aktif FTP bağlantıları + son girişler ---
+  router.get('/ftp/connections', auth, (req, res) => {
+    let sessions = [];
+    try {
+      const out = run(`ss -tn state established '( sport = :21 or dport = :21 )' 2>/dev/null | tail -n +2`);
+      sessions = out.output.split('\n').filter(Boolean).map(l => {
+        const p = l.trim().split(/\s+/);
+        const local = p[3] || '', peer = p[4] || '';
+        return { local, peer, peerIp: peer.split(':')[0] };
+      });
+    } catch (e) { /* yoksay */ }
+    let log = [];
+    try {
+      const out = sudo(`tail -20 /var/log/vsftpd.log 2>/dev/null`, 5000);
+      log = out.output.split('\n').filter(Boolean).map(l => l.trim()).slice(-20);
+    } catch (e) { /* yoksay */ }
+    res.json({ ok: true, sessions, log });
+  });
+
   /* ---------- yardımcı ---------- */
   function fmtBytes(n) {
     if (n == null || isNaN(n)) return '—';

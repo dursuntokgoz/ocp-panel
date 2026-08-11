@@ -25,6 +25,15 @@
 - [x] **DNS Functions:** DNS Zone Manager (A/CNAME/MX/NS/TXT), Add/Edit DNS Zone (gerçek /etc/hosts)
 - [x] **Email Functions:** Email Accounts, Create/Modify/Delete Email Account, Email Disk Usage
 
+### 📁 FTP (gerçek vsftpd)
+- [x] FTP hesapları oluşturma (vsftpd virtual user + passwd-file)
+- [x] FTP hesap listeleme (disk kullanımı + bağlantı sayısı)
+- [x] FTP hesap parola değiştirme
+- [x] FTP hesap silme (passwd-file + dizin temizliği)
+- [x] FTP bağlantıları (canlı `vsftpd` process + `ss` port monitoring)
+- [x] Paket limiti kontrolü (paket FTP limiti aşılınca reddedilir)
+- [x] Ekran görüntüleri: FTP Accounts, Create FTP, FTP Connections
+
 ### 📧 E-posta (gerçek postfix + dovecot)
 - [x] postfix sanal domainler (`virtual_mailbox_domains` + map'ler, panelden senkronize)
 - [x] dovecot passwd-file auth — SMTP SASL (587) + IMAP (143) + POP3 (110)

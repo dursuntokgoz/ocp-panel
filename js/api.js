@@ -112,5 +112,12 @@ const PanelAPI = {
   getEmails(domain) { return this.get('/emails' + (domain ? '?domain=' + encodeURIComponent(domain) : '')); },
   addEmail(data) { return this.post('/emails', data); },
   updateEmail(email, data) { return this.request('PUT', '/emails/' + encodeURIComponent(email), data); },
-  deleteEmail(email) { return this.request('DELETE', '/emails/' + encodeURIComponent(email)); }
+  deleteEmail(email) { return this.request('DELETE', '/emails/' + encodeURIComponent(email)); },
+
+  /* --- FTP (WHM) --- */
+  getFtp() { return this.get('/ftp'); },
+  addFtp(data) { return this.post('/ftp', data); },
+  updateFtp(user, data) { return this.request('PUT', '/ftp/' + encodeURIComponent(user), data); },
+  deleteFtp(user) { return this.request('DELETE', '/ftp/' + encodeURIComponent(user)); },
+  getFtpConnections() { return this.get('/ftp/connections'); }
 };
