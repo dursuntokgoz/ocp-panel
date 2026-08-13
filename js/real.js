@@ -2402,6 +2402,141 @@ Object.assign(cPanelSubPages, {
       </div>`;
   },
 
+  /* ---------- DOCKER YÖNETİMİ ---------- */
+  dockerManager() {
+    const self = this;
+    const html = `
+      ${this.renderBreadcrumb('System', 'Docker')}
+      <div class="subpage-container">
+        ${this.header('🐳 Docker', 'Konteyner yönetimi: listele, başlat/durdur, logları görüntüle')}
+        <div id="dmBody">${loadingBox('Docker konteynerleri yükleniyor…')}</div>
+      </div>`;
+    setTimeout(() => this.loadDockerContainers(), 50);
+    return html;
+  },
+
+  loadDockerContainers() {
+    const body = document.getElementById('dmBody');
+    if (!body) return;
+    PanelAPI.getDocker().then(d => {
+      body.innerHTML = `
+        <div class="x3-form-box" style="padding:0;overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead><tr style="text-align:left;border-bottom:2px solid #e5e9f0;color:#556">
+              <th style="padding:8px">Ad</th>
+              <th style="padding:8px">Image</th>
+              <th style="padding:8px">Durum</th>
+              <th style="padding:8px">Portlar</th>
+              <th style="padding:8px">Oluşturulma</th>
+              <th style="padding:8px">Boyut</th>
+              <th style="padding:8px;text-align:center">Aksiyonlar</th>
+            </tr></thead>
+            <tbody>${d.containers.length ? d.containers.map(c => `
+              <tr data-id="${esc(c.id)}">
+                <td style="padding:8px;font-weight:600">${esc(c.name)}</td>
+                <td style="padding:8px;font-family:monospace;font-size:12px">${esc(c.image)}</td>
+                <td style="padding:8px">${c.status.includes('Up') ? '<span class="badge-active">● ' + esc(c.status) + '</span>' : '<span class="badge-warn">● ' + esc(c.status) + '</span>'}</td>
+                <td style="padding:8px;font-family:monospace;font-size:11px">${esc(c.ports) || '—'}</td>
+                <td style="padding:8px;font-size:12px">${esc(c.created)}</td>
+                <td style="padding:8px;font-size:12px">${esc(c.size) || '—'}</td>
+                <td style="padding:8px;text-align:center">
+                  ${c.status.includes('Up') ?
+                    `<button class="btn-x3-secondary" style="font-size:11px;padding:4px 8px;margin:2px" onclick="cPanelSubPages.dockerAction('${esc(c.id)}', 'stop')">⏹️ Durdur</button>
+                     <button class="btn-x3-secondary" style="font-size:11px;padding:4px 8px;margin:2px" onclick="cPanelSubPages.dockerAction('${esc(c.id)}', 'restart')">🔄 Yeniden Başlat</button>
+                     <button class="btn-x3-secondary" style="font-size:11px;padding:4px 8px;margin:2px" onclick="cPanelSubPages.dockerAction('${esc(c.id)}', 'pause')">⏸️ Duraklat</button>` :
+                    `<button class="btn-x3-primary" style="font-size:11px;padding:4px 8px;margin:2px" onclick="cPanelSubPages.dockerAction('${esc(c.id)}', 'start')">▶️ Başlat</button>`
+                  }
+                  <button class="btn-x3-secondary" style="font-size:11px;padding:4px 8px;margin:2px" onclick="cPanelSubPages.showDockerLogs('${esc(c.id)}', '${esc(c.name)}')">📋 Loglar</button>
+                  <button class="btn-x3-secondary" style="font-size:11px;padding:4px 8px;margin:2px" onclick="cPanelSubPages.showDockerStats('${esc(c.id)}', '${esc(c.name)}')">📊 Stats</button>
+                </td>
+              </tr>`).join('') : '<tr><td colspan="7" style="padding:16px;text-align:center;color:#889">Konteyner yok (Docker kurulu mu?)</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button class="btn-x3-primary" onclick="cPanelSubPages.loadDockerContainers()">🔄 Yenile</button>
+        </div>`;
+    }).catch(e => { body.innerHTML = errBox(e.message); });
+  },
+
+  dockerAction(id, action) {
+    const self = this;
+    const btn = event?.target;
+    if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+    PanelAPI.dockerAction(id, action).then(d => {
+      this.toast(action === 'start' ? '▶️ Konteyner başlatıldı' :
+               action === 'stop' ? '⏹️ Konteyner durduruldu' :
+               action === 'restart' ? '🔄 Konteyner yeniden başlatıldı' :
+               action === 'pause' ? '⏸️ Konteyner duraklatıldı' :
+               action === 'unpause' ? '▶️ Konteyner devam ettirildi' :
+               '⚡ ' + action);
+      setTimeout(() => this.loadDockerContainers(), 1500);
+    }).catch(e => {
+      this.toast('❌ ' + e.message);
+      if (btn) { btn.disabled = false; btn.textContent = action; }
+    });
+  },
+
+  showDockerLogs(id, name) {
+    const html = `
+      ${this.renderBreadcrumb('System', 'Docker Logs: ' + name)}
+      <div class="subpage-container">
+        ${this.header('📋 Docker Logs: ' + esc(name), 'Konteyner logları (son 200 satır)')}
+        <div class="x3-form-box" style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+          <input type="text" id="dmLogLines" placeholder="Satır sayısı" value="200" style="width:100px;padding:6px 10px;border:1px solid #ddd;border-radius:3px;font-size:13px">
+          <input type="text" id="dmLogSince" placeholder="Since (örn: 1h, 2024-01-01)" style="width:200px;padding:6px 10px;border:1px solid #ddd;border-radius:3px;font-size:13px">
+          <button class="btn-x3-primary" onclick="cPanelSubPages.loadDockerLogs('${esc(id)}', '${esc(name)}')">🔄 Yükle</button>
+          <button class="btn-x3-secondary" onclick="cPanelSubPages.dockerManager()">⬅️ Geri</button>
+        </div>
+        <div id="dmLogBody">${loadingBox('Loglar yükleniyor…')}</div>
+      </div>`;
+    setTimeout(() => this.loadDockerLogs(id, name), 50);
+    return html;
+  },
+
+  loadDockerLogs(id, name, lines, since) {
+    const body = document.getElementById('dmLogBody');
+    if (!body) return;
+    const l = lines || document.getElementById('dmLogLines')?.value || 200;
+    const s = since || document.getElementById('dmLogSince')?.value || '';
+    PanelAPI.dockerLogs(id, l, s).then(d => {
+      body.innerHTML = `
+        <div style="font-family:ui-monospace,monospace;font-size:11px;color:#222;line-height:1.5;max-height:500px;overflow-y:auto;white-space:pre-wrap;background:#0f172a;padding:12px;border-radius:4px">
+          ${esc(d.logs || 'Log yok').replace(/\n/g, '<br>')}
+        </div>`;
+    }).catch(e => { body.innerHTML = errBox(e.message); });
+  },
+
+  showDockerStats(id, name) {
+    const html = `
+      ${this.renderBreadcrumb('System', 'Docker Stats: ' + name)}
+      <div class="subpage-container">
+        ${this.header('📊 Docker Stats: ' + esc(name), 'Konteyner kaynak kullanımı (anlık)')}
+        <div id="dmStatsBody">${loadingBox('Stats yükleniyor…')}</div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button class="btn-x3-primary" onclick="cPanelSubPages.refreshDockerStats('${esc(id)}', '${esc(name)}')">🔄 Yenile</button>
+          <button class="btn-x3-secondary" onclick="cPanelSubPages.dockerManager()">⬅️ Geri</button>
+        </div>
+      </div>`;
+    setTimeout(() => this.refreshDockerStats(id, name), 50);
+    return html;
+  },
+
+  refreshDockerStats(id, name) {
+    const body = document.getElementById('dmStatsBody');
+    if (!body) return;
+    PanelAPI.dockerStats(id).then(d => {
+      body.innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+          <div class="x3-form-box" style="margin:0;text-align:center"><div style="font-size:11px;color:#667;margin-bottom:4px">CPU</div><div style="font-size:24px;font-weight:700">${esc(d.cpu)}</div></div>
+          <div class="x3-form-box" style="margin:0;text-align:center"><div style="font-size:11px;color:#667;margin-bottom:4px">RAM</div><div style="font-size:24px;font-weight:700">${esc(d.memUsage)} (${esc(d.memPerc)})</div></div>
+          <div class="x3-form-box" style="margin:0;text-align:center"><div style="font-size:11px;color:#667;margin-bottom:4px">Network I/O</div><div style="font-size:24px;font-weight:700">${esc(d.netIO)}</div></div>
+          <div class="x3-form-box" style="margin:0;text-align:center"><div style="font-size:11px;color:#667;margin-bottom:4px">Block I/O</div><div style="font-size:24px;font-weight:700">${esc(d.blockIO)}</div></div>
+          <div class="x3-form-box" style="margin:0;text-align:center"><div style="font-size:11px;color:#667;margin-bottom:4px">PIDs</div><div style="font-size:24px;font-weight:700">${esc(d.pids)}</div></div>
+        </div>`;
+    }).catch(e => { body.innerHTML = errBox(e.message); });
+  },
+
   /* ---------- Live Monitor (SSE — gerçek zamanlı grafikler) ---------- */
   liveMonitor() {
     const self = this;

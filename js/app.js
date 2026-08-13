@@ -16,6 +16,7 @@ const cPanelApp = {
         { name: 'Network Interfaces', icon: 'network', action: 'network' },
         { name: 'System Users', icon: 'systemUsers', action: 'systemUsers' },
         { name: 'Package Updates', icon: 'updates', action: 'updates' },
+        { name: 'Docker', icon: 'docker', action: 'dockerManager' },
         /* --- Account Functions --- */
         { name: 'Create a New Account', icon: 'createAccount', action: 'createAccount' },
         { name: 'List Accounts', icon: 'listAccounts', action: 'listAccounts' },

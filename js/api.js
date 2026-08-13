@@ -102,7 +102,7 @@ const PanelAPI = {
   deleteReseller(name) { return this.request('DELETE', '/resellers/' + encodeURIComponent(name)); },
   switchReseller(username) { return this.get('/resellers/switch/' + encodeURIComponent(username)); },
 
-/* --- selectedReseller state --- */
+  /* --- selectedReseller state --- */
   selectedReseller: null,
   selectedDomain: null,
   setSelectedReseller(username) {
@@ -120,7 +120,6 @@ const PanelAPI = {
     this.selectedDomain = localStorage.getItem('ocp_selected_domain') || null;
   },
   ownerParam() {
-    // Domain context varsa owner ignore edilir (domain daha spesifik)
     if (this.selectedDomain) return '?domain=' + encodeURIComponent(this.selectedDomain);
     if (this.selectedReseller) return '?owner=' + encodeURIComponent(this.selectedReseller);
     return '';
@@ -146,12 +145,14 @@ const PanelAPI = {
 
   /* --- FTP (WHM) --- */
   getFtp() { return this.get('/ftp' + this.ownerParam()); },
-  deleteEmail(email) { return this.request('DELETE', '/emails/' + encodeURIComponent(email)); },
-
-  /* --- FTP (WHM) --- */
-  getFtp() { return this.get('/ftp' + this.ownerParam()); },
   addFtp(data) { return this.post('/ftp', data); },
   updateFtp(user, data) { return this.request('PUT', '/ftp/' + encodeURIComponent(user), data); },
   deleteFtp(user) { return this.request('DELETE', '/ftp/' + encodeURIComponent(user)); },
-  getFtpConnections() { return this.get('/ftp/connections'); }
+  getFtpConnections() { return this.get('/ftp/connections'); },
+
+  /* --- DOCKER --- */
+  getDocker() { return this.get('/docker'); },
+  dockerAction(id, action) { return this.post('/docker/' + encodeURIComponent(id) + '/' + action); },
+  dockerLogs(id, lines, since) { return this.get('/docker/' + encodeURIComponent(id) + '/logs?lines=' + (lines || 100) + (since ? '&since=' + encodeURIComponent(since) : '')); },
+  dockerStats(id) { return this.get('/docker/' + encodeURIComponent(id) + '/stats'); }
 };

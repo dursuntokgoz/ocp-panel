@@ -415,6 +415,67 @@ module.exports = ({ run, runJson, auth, issueToken, sessions, PANEL_PASSWORD }) 
   });
 
   /* ==========================================================
+   * DOCKER YÖNETİMİ
+   * ========================================================== */
+  router.get('/docker', auth, (req, res) => {
+    // Tüm konteynerler (çalışan + durmuş)
+    const r = run(`docker ps -a --format '{{.ID}}|{{.Names}}|{{.Image}}|{{.Status}}|{{.Ports}}|{{.CreatedAt}}|{{.Size}}' 2>&1`);
+    if (!r.ok) return res.status(500).json({ error: r.output });
+    const list = r.output.trim().split('\n').filter(Boolean).map(l => {
+      const p = l.split('|');
+      return {
+        id: p[0],
+        name: p[1],
+        image: p[2],
+        status: p[3],
+        ports: p[4] || '',
+        created: p[5],
+        size: p[6] || ''
+      };
+    });
+    res.json({ ok: true, containers: list });
+  });
+
+  router.post('/docker/:id/:action', auth, (req, res) => {
+    const { id, action } = req.params;
+    const validActions = ['start', 'stop', 'restart', 'pause', 'unpause', 'kill'];
+    if (!validActions.includes(action)) return res.status(400).json({ error: 'Geçersiz aksiyon: ' + action });
+    // ID doğrulama (hex chars only)
+    if (!/^[a-f0-9]{12,64}$/i.test(id)) return res.status(400).json({ error: 'Geçersiz konteyner ID' });
+    const r = run(`docker ${action} ${id}`, 30000);
+    res.json({ ok: r.ok, output: r.output.trim() || (r.ok ? 'OK' : 'Hata') });
+  });
+
+  router.get('/docker/:id/logs', auth, (req, res) => {
+    const id = req.params.id;
+    if (!/^[a-f0-9]{12,64}$/i.test(id)) return res.status(400).json({ error: 'Geçersiz konteyner ID' });
+    const lines = Math.min(+(req.query.lines || 100), 5000);
+    const since = req.query.since ? `--since="${req.query.since}"` : '';
+    const follow = req.query.follow === 'true' ? '-f' : '';
+    const r = run(`docker logs ${follow} --tail ${lines} ${since} ${id} 2>&1`);
+    res.json({ ok: r.ok, logs: r.output, id });
+  });
+
+  router.get('/docker/:id/stats', auth, (req, res) => {
+    const id = req.params.id;
+    if (!/^[a-f0-9]{12,64}$/i.test(id)) return res.status(400).json({ error: 'Geçersiz konteyner ID' });
+    // Tek seferlik stats (--no-stream)
+    const r = run(`docker stats --no-stream --format '{{.CPUPerc}}|{{.MemUsage}}|{{.MemPerc}}|{{.NetIO}}|{{.BlockIO}}|{{.PIDs}}' ${id} 2>&1`);
+    if (!r.ok) return res.status(500).json({ error: r.output });
+    const p = r.output.trim().split('|');
+    res.json({
+      ok: true,
+      id,
+      cpu: p[0] || '0%',
+      memUsage: p[1] || '0B / 0B',
+      memPerc: p[2] || '0%',
+      netIO: p[3] || '0B / 0B',
+      blockIO: p[4] || '0B / 0B',
+      pids: p[5] || '0'
+    });
+  });
+
+  /* ==========================================================
    * SAĞLIK (auth'suz — servis durumu kontrolü için)
    * ========================================================== */
   router.get('/health', (req, res) => res.json({ ok: true, name: 'ocp-panel', time: new Date().toISOString() }));
