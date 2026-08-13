@@ -154,5 +154,16 @@ const PanelAPI = {
   getDocker() { return this.get('/docker'); },
   dockerAction(id, action) { return this.post('/docker/' + encodeURIComponent(id) + '/' + action); },
   dockerLogs(id, lines, since) { return this.get('/docker/' + encodeURIComponent(id) + '/logs?lines=' + (lines || 100) + (since ? '&since=' + encodeURIComponent(since) : '')); },
-  dockerStats(id) { return this.get('/docker/' + encodeURIComponent(id) + '/stats'); }
+  dockerStats(id) { return this.get('/docker/' + encodeURIComponent(id) + '/stats'); },
+
+  /* --- BACKUPS --- */
+  getBackups() { return this.get('/backups'); },
+  createBackup(data) { return this.post('/backups', data); },
+  restoreBackup(name, target) { return this.post('/backups/' + encodeURIComponent(name) + '/restore', { target }); },
+  deleteBackup(name) { return this.request('DELETE', '/backups/' + encodeURIComponent(name)); },
+  getBackupSchedule() { return this.get('/backups/schedule'); },
+  saveBackupSchedule(data) { return this.post('/backups/schedule', data); },
+  deleteBackupSchedule() { return this.request('DELETE', '/backups/schedule'); },
+  getBackupSettings() { return this.get('/backups/settings'); },
+  saveBackupSettings(data) { return this.post('/backups/settings', data); }
 };

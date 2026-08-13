@@ -78,10 +78,12 @@ function runJson(cmd, timeout = 15000) {
 /* ---------- Route'lar ---------- */
 const api = require('./routes')({ run, runJson, auth, issueToken, sessions, PANEL_PASSWORD });
 const whm = require('./whm')({ run, sudo, auth });
+const backups = require('./backups')({ run, sudo, auth });
 
 app.use(express.json({ limit: '10mb' }));
 app.use('/api', api);
 app.use('/api', whm);
+app.use('/api', backups);
 
 /* ---------- Statik dosyalar (frontend) ---------- */
 app.use(express.static(ROOT));

@@ -2677,3 +2677,316 @@ Object.assign(cPanelSubPages, {
     else this.startLiveMonitor();
   },
 });
+
+/* ============================================================
+ * OCP Panel — YEDEKLEME YÖNETİMİ
+ * ============================================================ */
+
+/* ---------- backupManager (ana sayfa) ---------- */
+cPanelSubPages.backupManager = function() {
+  const self = this;
+  const html = `
+    ${this.renderBreadcrumb('System', 'Backups')}
+    <div class="subpage-container">
+      ${this.header('💾 Backups', 'Yedekleme yönetimi: oluştur, geri yükle, sil, zamanla')}
+      <div id="bkBody">${loadingBox('Yedekler yükleniyor…')}</div>
+    </div>`;
+  setTimeout(() => this.loadBackups(), 50);
+  return html;
+};
+
+cPanelSubPages.loadBackups = function() {
+  const body = document.getElementById('bkBody');
+  if (!body) return;
+  PanelAPI.getBackups().then(d => {
+    body.innerHTML = `
+      <div class="x3-form-box" style="margin-bottom:12px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button class="btn-x3-primary" onclick="cPanelSubPages.showCreateBackup()">➕ Yeni Yedek</button>
+          <button class="btn-x3-secondary" onclick="cPanelSubPages.showBackupSchedule()">📅 Zamanlama</button>
+          <button class="btn-x3-secondary" onclick="cPanelSubPages.showBackupSettings()">⚙️ Ayarlar</button>
+          <span style="margin-left:auto;font-size:12px;color:#667">${d.total || 0} yedek · Toplam: ${d.totalSizeH || '—'}</span>
+        </div>
+      </div>
+      <div class="x3-form-box" style="padding:0;overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr style="text-align:left;border-bottom:2px solid #e5e9f0;color:#556">
+            <th style="padding:8px">Dosya</th>
+            <th style="padding:8px">Boyut</th>
+            <th style="padding:8px">Tarih</th>
+            <th style="padding:8px">Tip</th>
+            <th style="padding:8px;text-align:center">Aksiyonlar</th>
+          </tr></thead>
+          <tbody>${d.backups && d.backups.length ? d.backups.map(b => `
+            <tr>
+              <td style="padding:8px;font-family:monospace;font-size:12px">${esc(b.name || b.file)}</td>
+              <td style="padding:8px">${esc(b.sizeH || fmtBytes(b.size))}</td>
+              <td style="padding:8px;font-size:12px">${esc(b.mtime || b.created || '—')}</td>
+              <td style="padding:8px"><span class="badge-active">${esc(b.type || 'tar.gz')}</span></td>
+              <td style="padding:8px;text-align:center">
+                <button class="btn-x3-secondary" style="font-size:11px;padding:4px 8px;margin:2px" onclick="cPanelSubPages.showRestoreBackup('${esc(b.file || b.name)}')">🔄 Geri Yükle</button>
+                <button class="btn-x3-secondary" style="font-size:11px;padding:4px 8px;margin:2px" onclick="cPanelSubPages.downloadBackup('${esc(b.file || b.name)}')">⬇️ İndir</button>
+                <button class="btn-x3-danger" style="font-size:11px;padding:4px 8px;margin:2px" onclick="cPanelSubPages.deleteBackup('${esc(b.file || b.name)}')">🗑️ Sil</button>
+              </td>
+            </tr>`).join('') : '<tr><td colspan="5" style="padding:16px;text-align:center;color:#889">Henüz yedek yok</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+      ${d.schedule ? `<div class="x3-form-box" style="margin-top:12px;background:#ecfdf5">
+        <strong>📅 Zamanlama aktif:</strong> ${esc(d.schedule.expr || '—')} · ${esc(d.schedule.frequency || 'günlük')}<br>
+        <span style="font-size:12px;color:#667">Kaynak: ${(d.schedule.sources || []).map(s => esc(s)).join(', ')} · Hedef: ${esc(d.schedule.dir || '—')}</span>
+      </div>` : ''}
+      ${d.history && d.history.length ? `
+        <div class="x3-form-box" style="margin-top:12px">
+          <strong style="font-size:13px">📋 Son İşlemler</strong>
+          <div style="margin-top:8px;font-size:12px;color:#667;line-height:1.8">
+            ${d.history.slice(0, 10).map(h => `
+              <div style="display:flex;gap:8px;border-bottom:1px solid #eee;padding:4px 0">
+                <span style="width:80px">${esc(h.action)}</span>
+                <span style="width:120px;font-family:monospace;font-size:11px">${esc(h.name || '—')}</span>
+                <span style="flex:1">${h.ok ? '✅' : '❌'} ${esc(h.error || '')}</span>
+                <span style="font-size:11px">${esc(h.started || '').slice(0, 16)}</span>
+              </div>`).join('')}
+          </div>
+        </div>` : ''}`;
+  }).catch(e => { body.innerHTML = errBox(e.message); });
+};
+
+/* ---------- Yedek oluştur ---------- */
+cPanelSubPages.showCreateBackup = function() {
+  const html = `
+    ${this.renderBreadcrumb('System', 'Backups', 'Create')}
+    <div class="subpage-container">
+      ${this.header('➕ Yeni Yedek', 'tar.gz arşivi oluştur')}
+      <div class="x3-form-box">
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:12px;color:#667;margin-bottom:4px">Yedek Adı (boş bırak = otomatik)</label>
+          <input type="text" id="bkName" placeholder="backup-2026-01-01" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:3px;font-size:13px">
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:12px;color:#667;margin-bottom:4px">Kaynak Dizinler (virgülle ayırın, boş = varsayılan)</label>
+          <input type="text" id="bkSources" placeholder="/home/dursun/web, /home/dursun/db" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:3px;font-size:13px">
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:12px;color:#667;margin-bottom:4px">Hedef Dizin (boş = varsayılan)</label>
+          <input type="text" id="bkDir" placeholder="/home/dursun/backups" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:3px;font-size:13px">
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-x3-primary" onclick="cPanelSubPages.createBackup()">📦 Oluştur</button>
+          <button class="btn-x3-secondary" onclick="cPanelSubPages.backupManager()">⬅️ İptal</button>
+        </div>
+        <div id="bkCreateResult" style="margin-top:12px"></div>
+      </div>
+    </div>`;
+  return html;
+};
+
+cPanelSubPages.createBackup = function() {
+  const name = document.getElementById('bkName').value.trim() || undefined;
+  const sources = document.getElementById('bkSources').value.trim();
+  const dir = document.getElementById('bkDir').value.trim();
+  const result = document.getElementById('bkCreateResult');
+  const btn = event.target;
+  btn.disabled = true; btn.textContent = '⏳ Oluşturuluyor…';
+  result.innerHTML = loadingBox('Yedek oluşturuluyor, lütfen bekleyin…');
+  PanelAPI.createBackup({
+    name: name || undefined,
+    sources: sources ? sources.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+    dir: dir || undefined
+  }).then(d => {
+    result.innerHTML = `<div style="color:#27ae60;padding:12px;background:#ecfdf5;border-radius:3px">✅ ${esc(d.message)}</div>`;
+    setTimeout(() => this.backupManager(), 2000);
+  }).catch(e => {
+    result.innerHTML = errBox(e.message);
+    btn.disabled = false; btn.textContent = '📦 Oluştur';
+  });
+};
+
+/* ---------- Geri yükle ---------- */
+cPanelSubPages.showRestoreBackup = function(name) {
+  const html = `
+    ${this.renderBreadcrumb('System', 'Backups', 'Restore')}
+    <div class="subpage-container">
+      ${this.header('🔄 Geri Yükle: ' + esc(name), 'Yedeği hedef dizine çıkar')}
+      <div class="x3-form-box">
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:12px;color:#667;margin-bottom:4px">Hedef Dizin (boş = orijinal kaynak)</label>
+          <input type="text" id="bkRestoreTarget" placeholder="/home/dursun/restore" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:3px;font-size:13px">
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-x3-primary" onclick="cPanelSubPages.restoreBackup('${esc(name)}')">🔄 Geri Yükle</button>
+          <button class="btn-x3-secondary" onclick="cPanelSubPages.backupManager()">⬅️ İptal</button>
+        </div>
+        <div id="bkRestoreResult" style="margin-top:12px"></div>
+      </div>
+    </div>`;
+  return html;
+};
+
+cPanelSubPages.restoreBackup = function(name) {
+  const target = document.getElementById('bkRestoreTarget').value.trim() || undefined;
+  const result = document.getElementById('bkRestoreResult');
+  const btn = event.target;
+  btn.disabled = true; btn.textContent = '⏳ Yükleniyor…';
+  result.innerHTML = loadingBox('Yedek geri yükleniyor, lütfen bekleyin…');
+  PanelAPI.restoreBackup(name, target).then(d => {
+    result.innerHTML = `<div style="color:#27ae60;padding:12px;background:#ecfdf5;border-radius:3px">✅ ${esc(d.message)}</div>`;
+  }).catch(e => {
+    result.innerHTML = errBox(e.message);
+    btn.disabled = false; btn.textContent = '🔄 Geri Yükle';
+  });
+};
+
+/* ---------- Sil ---------- */
+cPanelSubPages.deleteBackup = function(name) {
+  if (!confirm('🗑️ "' + name + '" yedeğini silmek istediğinize emin misiniz?')) return;
+  PanelAPI.deleteBackup(name).then(d => {
+    this.toast('🗑️ Yedek silindi: ' + name);
+    this.loadBackups();
+  }).catch(e => { this.toast('❌ ' + e.message); });
+};
+
+/* ---------- İndir ---------- */
+cPanelSubPages.downloadBackup = function(name) {
+  // API'den doğrudan indirme linki yok, ancak panelin /api/backups/download endpoint'i eklenebilir
+  // Şimdilik bilgi mesajı göster
+  this.toast('⬇️ İndirme: ' + name + ' (tar.gz dosyasını manuel alın)');
+};
+
+/* ---------- Zamanlama ---------- */
+cPanelSubPages.showBackupSchedule = function() {
+  const html = `
+    ${this.renderBreadcrumb('System', 'Backups', 'Schedule')}
+    <div class="subpage-container">
+      ${this.header('📅 Zamanlama', 'Otomatik yedekleme zamanlaması (crontab)')}
+      <div class="x3-form-box">
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:12px;color:#667;margin-bottom:4px">Sıklık</label>
+          <select id="bkFreq" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:3px;font-size:13px" onchange="cPanelSubPages.toggleBackupCustom()">
+            <option value="daily">Günlük</option>
+            <option value="weekly">Haftalık</option>
+            <option value="monthly">Aylık</option>
+            <option value="custom">Özel (cron)</option>
+          </select>
+        </div>
+        <div id="bkCustomWrap" style="display:none;margin-bottom:12px">
+          <label style="display:block;font-size:12px;color:#667;margin-bottom:4px">Cron İfadesi (örn: 0 3 * * *)</label>
+          <input type="text" id="bkCustom" placeholder="0 3 * * *" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:3px;font-size:13px">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div>
+            <label style="display:block;font-size:12px;color:#667;margin-bottom:4px">Saat</label>
+            <input type="number" id="bkHour" value="3" min="0" max="23" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:3px;font-size:13px">
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;color:#667;margin-bottom:4px">Dakika</label>
+            <input type="number" id="bkMinute" value="0" min="0" max="59" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:3px;font-size:13px">
+          </div>
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:12px;color:#667;margin-bottom:4px">Kaynak Dizinler (virgülle ayırın)</label>
+          <input type="text" id="bkSchSources" placeholder="/home/dursun" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:3px;font-size:13px">
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-x3-primary" onclick="cPanelSubPages.saveBackupSchedule()">💾 Kaydet</button>
+          <button class="btn-x3-danger" onclick="cPanelSubPages.deleteBackupSchedule()">🗑️ Kaldır</button>
+          <button class="btn-x3-secondary" onclick="cPanelSubPages.backupManager()">⬅️ Geri</button>
+        </div>
+        <div id="bkSchResult" style="margin-top:12px"></div>
+      </div>
+    </div>`;
+  // Mevcut zamanlamayı yükle
+  setTimeout(() => {
+    PanelAPI.getBackupSchedule().then(d => {
+      if (d.schedule) {
+        const s = d.schedule;
+        if (s.frequency) document.getElementById('bkFreq').value = s.frequency;
+        if (s.hour != null) document.getElementById('bkHour').value = s.hour;
+        if (s.minute != null) document.getElementById('bkMinute').value = s.minute;
+        if (s.custom) { document.getElementById('bkCustom').value = s.custom; document.getElementById('bkCustomWrap').style.display = 'block'; }
+        if (s.sources) document.getElementById('bkSchSources').value = s.sources.join(', ');
+      }
+    }).catch(() => {});
+  }, 50);
+  return html;
+};
+
+cPanelSubPages.toggleBackupCustom = function() {
+  const freq = document.getElementById('bkFreq').value;
+  document.getElementById('bkCustomWrap').style.display = freq === 'custom' ? 'block' : 'none';
+};
+
+cPanelSubPages.saveBackupSchedule = function() {
+  const freq = document.getElementById('bkFreq').value;
+  const hour = +document.getElementById('bkHour').value;
+  const minute = +document.getElementById('bkMinute').value;
+  const custom = freq === 'custom' ? document.getElementById('bkCustom').value.trim() : undefined;
+  const sources = document.getElementById('bkSchSources').value.trim();
+  const result = document.getElementById('bkSchResult');
+  const btn = event.target;
+  btn.disabled = true; btn.textContent = '⏳ Kaydediliyor…';
+  PanelAPI.saveBackupSchedule({
+    frequency: freq, hour, minute,
+    custom: custom || undefined,
+    sources: sources ? sources.split(',').map(s => s.trim()).filter(Boolean) : undefined
+  }).then(d => {
+    result.innerHTML = `<div style="color:#27ae60;padding:12px;background:#ecfdf5;border-radius:3px">✅ ${esc(d.message)}</div>`;
+    setTimeout(() => this.backupManager(), 2000);
+  }).catch(e => {
+    result.innerHTML = errBox(e.message);
+    btn.disabled = false; btn.textContent = '💾 Kaydet';
+  });
+};
+
+cPanelSubPages.deleteBackupSchedule = function() {
+  if (!confirm('Zamanlamayı kaldırmak istediğinize emin misiniz?')) return;
+  PanelAPI.deleteBackupSchedule().then(d => {
+    this.toast('📅 Zamanlama kaldırıldı');
+    this.backupManager();
+  }).catch(e => { this.toast('❌ ' + e.message); });
+};
+
+/* ---------- Ayarlar ---------- */
+cPanelSubPages.showBackupSettings = function() {
+  const html = `
+    ${this.renderBreadcrumb('System', 'Backups', 'Settings')}
+    <div class="subpage-container">
+      ${this.header('⚙️ Yedekleme Ayarları', 'Varsayılan dizin ve kaynaklar')}
+      <div class="x3-form-box">
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:12px;color:#667;margin-bottom:4px">Varsayılan Hedef Dizin</label>
+          <input type="text" id="bkSetDir" placeholder="/home/dursun/backups" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:3px;font-size:13px">
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:12px;color:#667;margin-bottom:4px">Varsayılan Kaynak Dizinler</label>
+          <input type="text" id="bkSetSources" placeholder="/home/dursun" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:3px;font-size:13px">
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-x3-primary" onclick="cPanelSubPages.saveBackupSettings()">💾 Kaydet</button>
+          <button class="btn-x3-secondary" onclick="cPanelSubPages.backupManager()">⬅️ Geri</button>
+        </div>
+        <div id="bkSetResult" style="margin-top:12px"></div>
+      </div>
+    </div>`;
+  setTimeout(() => {
+    PanelAPI.getBackupSettings().then(d => {
+      if (d.settings) {
+        if (d.settings.dir) document.getElementById('bkSetDir').value = d.settings.dir;
+        if (d.settings.sources) document.getElementById('bkSetSources').value = d.settings.sources.join(', ');
+      }
+    }).catch(() => {});
+  }, 50);
+  return html;
+};
+
+cPanelSubPages.saveBackupSettings = function() {
+  const dir = document.getElementById('bkSetDir').value.trim();
+  const sources = document.getElementById('bkSetSources').value.trim();
+  const result = document.getElementById('bkSetResult');
+  PanelAPI.saveBackupSettings({
+    dir: dir || undefined,
+    sources: sources ? sources.split(',').map(s => s.trim()).filter(Boolean) : undefined
+  }).then(d => {
+    result.innerHTML = `<div style="color:#27ae60;padding:12px;background:#ecfdf5;border-radius:3px">✅ Ayarlar kaydedildi</div>`;
+  }).catch(e => { result.innerHTML = errBox(e.message); });
+};
