@@ -2848,9 +2848,19 @@ cPanelSubPages.deleteBackup = function(name) {
 
 /* ---------- İndir ---------- */
 cPanelSubPages.downloadBackup = function(name) {
-  // API'den doğrudan indirme linki yok, ancak panelin /api/backups/download endpoint'i eklenebilir
-  // Şimdilik bilgi mesajı göster
-  this.toast('⬇️ İndirme: ' + name + ' (tar.gz dosyasını manuel alın)');
+  PanelAPI.downloadBackup(name).then(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    this.toast('⬇️ İndirme başladı: ' + name);
+  }).catch(e => {
+    this.toast('❌ İndirme hatası: ' + e.message);
+  });
 };
 
 /* ---------- Zamanlama ---------- */

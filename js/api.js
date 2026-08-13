@@ -48,7 +48,7 @@ const PanelAPI = {
   },
 
   /* ---------- temel fetch ---------- */
-  async request(method, url, body) {
+  async request(method, url, body, options = {}) {
     const headers = { 'Content-Type': 'application/json' };
     if (this.token) headers['Authorization'] = 'Bearer ' + this.token;
     const r = await fetch(this.base + url, {
@@ -61,13 +61,18 @@ const PanelAPI = {
       location.reload();
       throw new Error('Oturum süresi doldu');
     }
-    const d = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
-    return d;
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      throw new Error(d.error || ('HTTP ' + r.status));
+    }
+    if (options.responseType === 'blob') {
+      return r.blob();
+    }
+    return r.json();
   },
 
-  get(url) { return this.request('GET', url); },
-  post(url, body) { return this.request('POST', url, body || {}); },
+  get(url, options) { return this.request('GET', url, undefined, options); },
+  post(url, body, options) { return this.request('POST', url, body || {}, options); },
 
   /* ---------- endpoint yardımcıları ---------- */
   stats() { return this.get('/stats'); },
@@ -165,5 +170,6 @@ const PanelAPI = {
   saveBackupSchedule(data) { return this.post('/backups/schedule', data); },
   deleteBackupSchedule() { return this.request('DELETE', '/backups/schedule'); },
   getBackupSettings() { return this.get('/backups/settings'); },
-  saveBackupSettings(data) { return this.post('/backups/settings', data); }
+  saveBackupSettings(data) { return this.post('/backups/settings', data); },
+  downloadBackup(name) { return this.get('/backups/download/' + encodeURIComponent(name), { responseType: 'blob' }); }
 };

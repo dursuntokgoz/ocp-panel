@@ -381,5 +381,30 @@ module.exports = ({ run, sudo, auth }) => {
     res.json({ ok: true, settings: db.settings });
   });
 
+  /* ==========================================================
+   * YEDEK İNDİR
+   * ========================================================== */
+  router.get('/backups/download/:name', auth, (req, res) => {
+    const name = String(req.params.name).trim();
+    const db = loadDB();
+    const dir = (db.settings && db.settings.dir) || DEFAULT_BACKUP_DIR;
+    const fp = path.join(path.resolve(dir), name);
+    // Güvenlik: yol kaçışı koruması
+    const resolvedDir = path.resolve(dir);
+    const resolvedFp = path.resolve(fp);
+    if (!resolvedFp.startsWith(resolvedDir + path.sep) && resolvedFp !== resolvedDir) {
+      return res.status(400).json({ error: 'Geçersiz dosya yolu' });
+    }
+    if (!fs.existsSync(resolvedFp) || !fs.statSync(resolvedFp).isFile()) {
+      return res.status(404).json({ error: 'Yedek bulunamadı: ' + name });
+    }
+    res.download(resolvedFp, name, (err) => {
+      if (err) {
+        console.error('[backup] download error:', err.message);
+        if (!res.headersSent) res.status(500).json({ error: 'İndirme hatası' });
+      }
+    });
+  });
+
   return router;
 };
