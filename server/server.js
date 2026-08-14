@@ -92,12 +92,16 @@ const api = require('./routes')({ run, runJson, auth, issueToken, sessions, PANE
 const whm = require('./whm')({ run, sudo, auth });
 const backups = require('./backups')({ run, sudo, auth });
 const users = require('./users')({ auth, rbac, requirePermission: rbac.requirePermission });
+const { setupSwagger } = require('./swagger');
 
 app.use(express.json({ limit: '10mb' }));
 app.use('/api', api);
 app.use('/api', whm);
 app.use('/api', backups);
 app.use('/api', users);
+
+/* ---------- Swagger API Docs ---------- */
+setupSwagger(app);
 
 /* ---------- Statik dosyalar (frontend) ---------- */
 app.use(express.static(ROOT));
