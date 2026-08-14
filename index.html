@@ -203,13 +203,14 @@
   <script src="js/real.js"></script>
   <script src="js/app.js"></script>
 
-  <!-- Login Overlay -->
+<!-- Login Overlay -->
   <div id="loginOverlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(10,15,30,.92);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center">
     <div style="background:#fff;border-radius:12px;padding:40px 44px;width:380px;max-width:92vw;box-shadow:0 24px 80px rgba(0,0,0,.5);text-align:center">
-      <div style="font-size:44px;margin-bottom:8px">🖥️</div>
+      <div style="font-size:44px;margin-bottom:8px">�������</div>
       <h2 style="margin:0 0 4px;color:#1a2233;font-size:22px">OCP Panel</h2>
       <p style="margin:0 0 24px;color:#667;font-size:13px">Gerçek Sunucu Kontrol Paneli · <span id="loginHost" style="font-weight:600;color:#333"></span></p>
-      <input type="password" id="loginPass" placeholder="Panel parolası" style="width:100%;padding:12px 14px;border:2px solid #dde3ec;border-radius:8px;font-size:15px;outline:none;box-sizing:border-box" onkeydown="if(event.key==='Enter')PanelAuth.login()">
+      <input type="text" id="loginUser" placeholder="Kullanıcı adı (varsayılan: admin)" style="width:100%;padding:12px 14px;border:2px solid #dde3ec;border-radius:8px;font-size:15px;outline:none;box-sizing:border-box;margin-bottom:10px" autocomplete="username" onkeydown="if(event.key==='Enter')PanelAuth.login()">
+      <input type="password" id="loginPass" placeholder="Parola" style="width:100%;padding:12px 14px;border:2px solid #dde3ec;border-radius:8px;font-size:15px;outline:none;box-sizing:border-box" onkeydown="if(event.key==='Enter')PanelAuth.login()">
       <button id="loginBtn" onclick="PanelAuth.login()" style="width:100%;margin-top:14px;padding:12px;background:#e8740c;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer">Giriş Yap</button>
       <div id="loginErr" style="color:#d33;font-size:13px;margin-top:12px;min-height:18px"></div>
     </div>

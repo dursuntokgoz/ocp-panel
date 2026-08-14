@@ -16,25 +16,44 @@ const PanelAPI = {
 
   saveSession(token, user) {
     this.token = token;
-    this.user = user;
+    this.user = user.username;
+    this.role = user.role;
+    this.name = user.name;
+    this.userId = user.id;
     localStorage.setItem('ocp_token', token);
-    localStorage.setItem('ocp_user', user || '');
+    localStorage.setItem('ocp_user', user.username || '');
+    localStorage.setItem('ocp_role', user.role || '');
+    localStorage.setItem('ocp_name', user.name || '');
+    localStorage.setItem('ocp_userId', String(user.id || ''));
+  },
+
+  init() {
+    this.token = localStorage.getItem('ocp_token') || null;
+    this.user = localStorage.getItem('ocp_user') || null;
+    this.role = localStorage.getItem('ocp_role') || null;
+    this.name = localStorage.getItem('ocp_name') || null;
+    this.userId = parseInt(localStorage.getItem('ocp_userId') || '0', 10) || null;
+    this.initSelectedReseller();
   },
 
   clearSession() {
     this.token = null;
     this.user = null;
+    this.role = null;
+    this.name = null;
+    this.userId = null;
     localStorage.removeItem('ocp_token');
     localStorage.removeItem('ocp_user');
+    localStorage.removeItem('ocp_role');
+    localStorage.removeItem('ocp_name');
+    localStorage.removeItem('ocp_userId');
   },
 
-  get isAuthed() { return !!this.token; },
-
-  async login(password) {
+  async login(username, password) {
     const r = await fetch(this.base + '/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password })
+      body: JSON.stringify({ username, password })
     });
     const d = await r.json().catch(() => ({}));
     if (!r.ok || !d.token) throw new Error(d.error || 'Giriş başarısız');
@@ -171,5 +190,12 @@ const PanelAPI = {
   deleteBackupSchedule() { return this.request('DELETE', '/backups/schedule'); },
   getBackupSettings() { return this.get('/backups/settings'); },
   saveBackupSettings(data) { return this.post('/backups/settings', data); },
-  downloadBackup(name) { return this.get('/backups/download/' + encodeURIComponent(name), { responseType: 'blob' }); }
+  downloadBackup(name) { return this.get('/backups/download/' + encodeURIComponent(name), { responseType: 'blob' }); },
+
+  /* --- USERS (RBAC) --- */
+  getUsers() { return this.request('GET', '/users'); },
+  createUser(data) { return this.request('POST', '/users', data); },
+  updateUser(id, data) { return this.request('PUT', '/users/' + id, data); },
+  deleteUser(id) { return this.request('DELETE', '/users/' + id); },
+  changeMyPassword(current, next) { return this.request('POST', '/users/me/password', { current, next }); }
 };

@@ -15,6 +15,7 @@ const cPanelApp = {
         { name: 'Services', icon: 'services', action: 'services' },
         { name: 'Network Interfaces', icon: 'network', action: 'network' },
         { name: 'System Users', icon: 'systemUsers', action: 'systemUsers' },
+        { name: 'User Manager', icon: 'userManager', action: 'userManager', adminOnly: true },
         { name: 'Package Updates', icon: 'updates', action: 'updates' },
         { name: 'Docker', icon: 'docker', action: 'dockerManager' },
         { name: 'Backups', icon: 'backups', action: 'backupManager' },
@@ -195,7 +196,7 @@ const cPanelApp = {
     console.log('OCP Panel Ready — ' + this.categories.reduce((n, c) => n + c.tools.length, 0) + ' modül yüklendi' + (PanelAPI.selectedReseller ? ' (reseller: ' + PanelAPI.selectedReseller + ')' : ''));
   },
 
-  renderDashboard: function() {
+renderDashboard: function() {
     const container = document.getElementById('mainContentArea');
     if (!container) return;
 
@@ -205,12 +206,16 @@ const cPanelApp = {
         <div class="cat-panel" id="panel-${cat.id}">
           <div class="cat-header" onclick="cPanelApp.toggleCategory('${cat.id}')">
             <span>${cat.title}</span>
-            <span class="cat-toggle-btn" id="btn-${cat.id}">▲</span>
+            <span class="cat-toggle-btn" id="btn-${cat.id}">��</span>
           </div>
           <div class="cat-grid" id="grid-${cat.id}">
       `;
 
       cat.tools.forEach(tool => {
+        // Admin-only tool'ları sadece admin'e göster
+        if (tool.adminOnly && PanelAPI.role !== 'admin') {
+          return; // skip this tool
+        }
         const svg = X3Icons[tool.icon] || X3Icons.genericTool;
         html += `
           <div class="x3-tool-item" data-name="${tool.name.toLowerCase()}" onclick="cPanelApp.openTool('${tool.action}')">
@@ -277,6 +282,13 @@ const cPanelApp = {
   openTool: function(action) {
     const container = document.getElementById('mainContentArea');
     if (!container) return;
+
+    // Admin-only kontrol: action'ı bul ve adminOnly ise yetki kontrol et
+    const tool = this.categories.flatMap(c => c.tools).find(t => t.action === action);
+    if (tool && tool.adminOnly && PanelAPI.role !== 'admin') {
+      this.toast('��� Bu işlem için admin yetkisi gerekli');
+      return;
+    }
 
     this.activeView = 'subpage';
     const renderer = cPanelSubPages[action] || cPanelSubPages.generic;
@@ -422,24 +434,26 @@ const PanelAuth = {
     if (ov) ov.style.display = 'none';
   },
 
-  async login() {
-    const inp = document.getElementById('loginPass');
+async login() {
+    const userInp = document.getElementById('loginUser');
+    const passInp = document.getElementById('loginPass');
     const err = document.getElementById('loginErr');
     const btn = document.getElementById('loginBtn');
-    const pw = inp ? inp.value : '';
+    const username = userInp ? userInp.value.trim() || 'admin' : 'admin';
+    const pw = passInp ? passInp.value : '';
     if (!pw) return;
     if (btn) { btn.disabled = true; btn.textContent = 'Kontrol ediliyor…'; }
     if (err) err.textContent = '';
     try {
-      await PanelAPI.login(pw);
+      await PanelAPI.login(username, pw);
       this.hide();
       cPanelApp.renderDashboard();
       cPanelApp.setupSearch();
       cPanelApp.updateStats();
-      if (inp) inp.value = '';
+      if (passInp) passInp.value = '';
     } catch (e) {
-      if (err) err.textContent = '❌ ' + e.message;
-      if (inp) { inp.value = ''; inp.focus(); }
+      if (err) err.textContent = '��� ' + e.message;
+      if (passInp) { passInp.value = ''; passInp.focus(); }
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = 'Giriş Yap'; }
     }

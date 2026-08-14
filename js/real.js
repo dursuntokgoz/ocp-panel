@@ -3000,3 +3000,290 @@ cPanelSubPages.saveBackupSettings = function() {
     result.innerHTML = `<div style="color:#27ae60;padding:12px;background:#ecfdf5;border-radius:3px">✅ Ayarlar kaydedildi</div>`;
   }).catch(e => { result.innerHTML = errBox(e.message); });
 };
+
+/* ============================================================
+ * KULLANICI YÖNETİMİ (RBAC) — Sadece Admin
+ * ============================================================ */
+
+cPanelSubPages.userManager = function() {
+  const html = `
+    ${this.renderBreadcrumb('System', 'User Manager')}
+    <div class="subpage-container">
+      ${this.header('���� Kullanıcı Yönetimi', 'Kullanıcı oluştur, rol ata, parola değiştir, sil (sadece admin)')}
+      <div id="umBody">${loadingBox('Kullanıcılar yükleniyor…')}</div>
+    </div>`;
+  setTimeout(() => this.loadUsers(), 50);
+  return html;
+};
+
+cPanelSubPages.loadUsers = function() {
+  const body = document.getElementById('umBody');
+  if (!body) return;
+  PanelAPI.request('GET', '/users').then(d => {
+    if (!d.ok || !d.users) {
+      body.innerHTML = errBox('Kullanıcı listesi alınamadı');
+      return;
+    }
+    body.innerHTML = `
+      <div class="x3-form-box" style="margin-bottom:12px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button class="btn-x3-primary" onclick="cPanelSubPages.showCreateUser()">��� Yeni Kullanıcı</button>
+          <span style="margin-left:auto;font-size:12px;color:#667">${d.users.length} kullanıcı</span>
+        </div>
+      </div>
+      <div class="x3-form-box" style="padding:0;overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr style="text-align:left;border-bottom:2px solid #e5e9f0;color:#556">
+            <th style="padding:8px">Kullanıcı</th>
+            <th style="padding:8px">Ad</th>
+            <th style="padding:8px">Rol</th>
+            <th style="padding:8px">Durum</th>
+            <th style="padding:8px">Oluşturulma</th>
+            <th style="padding:8px;text-align:center">Aksiyonlar</th>
+          </tr></thead>
+          <tbody>${d.users.map(u => `
+            <tr>
+              <td style="padding:8px;font-family:monospace;font-size:12px">${esc(u.username)}</td>
+              <td style="padding:8px">${esc(u.name)}</td>
+              <td style="padding:8px"><span class="badge-${u.role === 'admin' ? 'active' : u.role === 'reseller' ? 'warning' : 'info'}">${esc(u.role)}</span></td>
+              <td style="padding:8px">${u.active ? '<span class="badge-active">Aktif</span>' : '<span class="badge-error">Pasif</span>'}</td>
+              <td style="padding:8px;font-size:12px">${esc(u.created ? u.created.slice(0, 19).replace('T', ' ') : '—')}</td>
+              <td style="padding:8px;text-align:center">
+                <button class="btn-x3-secondary" style="font-size:11px;padding:4px 8px;margin:2px" onclick="cPanelSubPages.editUser(${u.id}, '${esc(u.username)}', '${esc(u.name)}', '${u.role}', ${u.active})">������ Düzenle</button>
+                <button class="btn-x3-danger" style="font-size:11px;padding:4px 8px;margin:2px" onclick="cPanelSubPages.deleteUser(${u.id}, '${esc(u.username)}')">������� Sil</button>
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="x3-form-box" style="margin-top:12px;background:#fef3c7;border:1px solid #fcd34d;border-radius:3px">
+        <strong>������ Not:</strong> Kullanıcı yönetimi sadece <code>admin</code> rolüne aittir. <code>reseller</code> ve <code>user</code> rolleri bu sayfayı göremez.
+      </div>`;
+  }).catch(e => { body.innerHTML = errBox(e.message); });
+};
+
+cPanelSubPages.showCreateUser = function() {
+  const html = `
+    ${this.renderBreadcrumb('System', 'User Manager', 'Create')}
+    <div class="subpage-container">
+      ${this.header('��� Yeni Kullanıcı', 'Kullanıcı adı, parola ve rol atayın')}
+      <div class="x3-form-box">
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:12px;color:#667;margin-bottom:4px">Kullanıcı Adı <span style="color:red">*</span></label>
+          <input type="text" id="umUsername" placeholder="kullanici_adi" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:3px;font-size:13px" autocomplete="username">
+          <span style="font-size:11px;color:#889">Küçük harf, rakam, . _ - ; 3-32 karakter, harf ile başlamalı</span>
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:12px;color:#667;margin-bottom:4px">Ad Soyad / Görünen Ad</label>
+          <input type="text" id="umName" placeholder="Tam Ad" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:3px;font-size:13px">
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:12px;color:#667;margin-bottom:4px">Parola <span style="color:red">*</span></label>
+          <input type="password" id="umPassword" placeholder="En az 8 karakter" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:3px;font-size:13px" autocomplete="new-password">
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:12px;color:#667;margin-bottom:4px">Rol</label>
+          <select id="umRole" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:3px;font-size:13px">
+            <option value="user">user — Sadece kendi hesabı (dosya, e-posta, FTP)</option>
+            <option value="reseller">reseller — Bayi (hesap/paket yönetimi, müşterileri)</option>
+            <option value="admin">admin — Yönetici (tüm yetkiler, kullanıcı yönetimi dahil)</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-x3-primary" onclick="cPanelSubPages.createUser()">��� Oluştur</button>
+          <button class="btn-x3-secondary" onclick="cPanelSubPages.userManager()">������ İptal</button>
+        </div>
+        <div id="umResult" style="margin-top:12px"></div>
+      </div>
+    </div>`;
+  return html;
+};
+
+cPanelSubPages.createUser = function() {
+  const username = document.getElementById('umUsername').value.trim().toLowerCase();
+  const name = document.getElementById('umName').value.trim();
+  const password = document.getElementById('umPassword').value;
+  const role = document.getElementById('umRole').value;
+  const result = document.getElementById('umResult');
+  if (!username || !password) { result.innerHTML = errBox('Kullanıcı adı ve parola gerekli'); return; }
+  const btn = event.target; btn.disabled = true; btn.textContent = '��� Oluşturuluyor…';
+  PanelAPI.request('POST', '/users', { username, password, role, name }).then(d => {
+    result.innerHTML = `<div style="color:#27ae60;padding:12px;background:#ecfdf5;border-radius:3px">��� ${esc(d.message)}</div>`;
+    setTimeout(() => this.userManager(), 1500);
+  }).catch(e => {
+    result.innerHTML = errBox(e.message);
+    btn.disabled = false; btn.textContent = '��� Oluştur';
+  });
+};
+
+cPanelSubPages.editUser = function(id, username, name, role, active) {
+  const html = `
+    ${this.renderBreadcrumb('System', 'User Manager', 'Edit')}
+    <div class="subpage-container">
+      ${this.header('������ Kullanıcı Düzenle', 'Rol, ad, durum ve parolayı güncelleyin')}
+      <div class="x3-form-box">
+        <div style="margin-bottom:12px;color:#667;font-size:13px">
+          <strong>Kullanıcı:</strong> ${esc(username)} (ID: ${id})
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:12px;color:#667;margin-bottom:4px">Ad Soyad / Görünen Ad</label>
+          <input type="text" id="umEditName" value="${esc(name)}" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:3px;font-size:13px">
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:12px;color:#667;margin-bottom:4px">Rol</label>
+          <select id="umEditRole" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:3px;font-size:13px">
+            <option value="user" ${role === 'user' ? 'selected' : ''}>user — Sadece kendi hesabı</option>
+            <option value="reseller" ${role === 'reseller' ? 'selected' : ''}>reseller — Bayi</option>
+            <option value="admin" ${role === 'admin' ? 'selected' : ''}>admin — Yönetici</option>
+          </select>
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#333">
+            <input type="checkbox" id="umEditActive" ${active ? 'checked' : ''} style="width:18px;height:18px">
+            <span>Aktif</span>
+          </label>
+        </div>
+        <div style="margin-bottom:12px;padding:12px;background:#fef3c7;border-radius:3px;border:1px solid #fcd34d">
+          <label style="display:block;font-size:12px;color:#667;margin-bottom:4px">Yeni Parola (boş bırakılırsa değişmez)</label>
+          <input type="password" id="umEditPassword" placeholder="En az 8 karakter" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:3px;font-size:13px" autocomplete="new-password">
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-x3-primary" onclick="cPanelSubPages.updateUser(${id})">���� Kaydet</button>
+          <button class="btn-x3-secondary" onclick="cPanelSubPages.userManager()">������ İptal</button>
+        </div>
+        <div id="umEditResult" style="margin-top:12px"></div>
+      </div>
+    </div>`;
+  return html;
+};
+
+cPanelSubPages.updateUser = function(id) {
+  const name = document.getElementById('umEditName').value.trim();
+  const role = document.getElementById('umEditRole').value;
+  const active = document.getElementById('umEditActive').checked;
+  const password = document.getElementById('umEditPassword').value;
+  const result = document.getElementById('umEditResult');
+  const payload = { name, role, active };
+  if (password) payload.password = password;
+  const btn = event.target; btn.disabled = true; btn.textContent = '��� Kaydediliyor…';
+  PanelAPI.request('PUT', '/users/' + id, payload).then(d => {
+    result.innerHTML = `<div style="color:#27ae60;padding:12px;background:#ecfdf5;border-radius:3px">��� ${esc(d.message)}</div>`;
+    setTimeout(() => this.userManager(), 1500);
+  }).catch(e => {
+    result.innerHTML = errBox(e.message);
+    btn.disabled = false; btn.textContent = '���� Kaydet';
+  });
+};
+
+cPanelSubPages.deleteUser = function(id, username) {
+  if (!confirm('Kullanıcı "' + username + '" silinecek. Emin misiniz?')) return;
+  PanelAPI.request('DELETE', '/users/' + id).then(d => {
+    this.toast('������� ' + d.message);
+    this.userManager();
+  }).catch(e => { this.toast('��� ' + e.message); });
+};
+
+cPanelSubPages.changeMyPassword = function() {
+  const html = `
+    ${this.renderBreadcrumb('Account', 'Change Password')}
+    <div class="subpage-container">
+      ${this.header('���� Parola Değiştir', 'Mevcut ve yeni parolanızı girin')}
+      <div class="x3-form-box">
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:12px;color:#667;margin-bottom:4px">Mevcut Parola</label>
+          <input type="password" id="cpCurrent" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:3px;font-size:13px" autocomplete="current-password">
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:12px;color:#667;margin-bottom:4px">Yeni Parola <span style="color:red">*</span></label>
+          <input type="password" id="cpNext" placeholder="En az 8 karakter" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:3px;font-size:13px" autocomplete="new-password">
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:12px;color:#667;margin-bottom:4px">Yeni Parola (Tekrar)</label>
+          <input type="password" id="cpConfirm" placeholder="Yeni parolayı tekrar girin" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:3px;font-size:13px" autocomplete="new-password">
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-x3-primary" onclick="cPanelSubPages.saveMyPassword()">���� Kaydet</button>
+          <button class="btn-x3-secondary" onclick="cPanelSubPages.accountSettings()">������ İptal</button>
+        </div>
+        <div id="cpResult" style="margin-top:12px"></div>
+      </div>
+    </div>`;
+  return html;
+};
+
+cPanelSubPages.saveMyPassword = function() {
+  const current = document.getElementById('cpCurrent').value;
+  const next = document.getElementById('cpNext').value;
+  const confirm = document.getElementById('cpConfirm').value;
+  const result = document.getElementById('cpResult');
+  if (!current || !next || !confirm) { result.innerHTML = errBox('Tüm alanlar gerekli'); return; }
+  if (next !== confirm) { result.innerHTML = errBox('Parolalar eşleşmiyor'); return; }
+  if (next.length < 8) { result.innerHTML = errBox('Parola en az 8 karakter olmalı'); return; }
+  const btn = event.target; btn.disabled = true; btn.textContent = '��� Kaydediliyor…';
+  PanelAPI.request('POST', '/users/me/password', { current, next }).then(d => {
+    result.innerHTML = `<div style="color:#27ae60;padding:12px;background:#ecfdf5;border-radius:3px">��� ${esc(d.message)}</div>`;
+    setTimeout(() => this.accountSettings(), 1500);
+  }).catch(e => {
+    result.innerHTML = errBox(e.message);
+    btn.disabled = false; btn.textContent = '���� Kaydet';
+  });
+};
+
+/* ---------- Hesap Ayarları (kullanıcı kendi ayarları) ---------- */
+cPanelSubPages.accountSettings = function() {
+  const html = `
+    ${this.renderBreadcrumb('Preferences', 'My Account')}
+    <div class="subpage-container">
+      ${this.header('���� Hesap Ayarları', 'Profil ve güvenlik ayarlarınız')}
+      <div class="x3-form-box">
+        <div style="margin-bottom:16px;padding:12px;background:#f0f9ff;border-radius:3px;border:1px solid #bae6fd">
+          <strong>���� Kullanıcı:</strong> ${esc(PanelAPI.user || 'admin')} 
+          <span style="margin-left:12px;font-size:12px;color:#667">Rol: <code>${esc(PanelAPI.role || 'admin')}</code></span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+          <button class="btn-x3-primary" onclick="cPanelSubPages.changeMyPassword()">���� Parola Değiştir</button>
+          <button class="btn-x3-secondary" onclick="cPanelSubPages.updateProfile()">���� Profil Düzenle</button>
+        </div>
+        <div style="font-size:12px;color:#889">
+          Not: Kullanıcı yönetimi (kullanıcı ekleme/silme/rol atama) sadece <code>admin</code> rolüne aittir.
+          WHM kategorisindeki "User Manager" bölümünden erişilebilir.
+        </div>
+      </div>
+    </div>`;
+  return html;
+};
+
+cPanelSubPages.updateProfile = function() {
+  const html = `
+    ${this.renderBreadcrumb('Preferences', 'My Account', 'Update Profile')}
+    <div class="subpage-container">
+      ${this.header('���� Profil Düzenle', 'Görünen adınızı güncelleyin')}
+      <div class="x3-form-box">
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:12px;color:#667;margin-bottom:4px">Ad Soyad / Görünen Ad</label>
+          <input type="text" id="upName" value="${esc(PanelAPI.name || PanelAPI.user || 'admin')}" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:3px;font-size:13px">
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-x3-primary" onclick="cPanelSubPages.saveProfile()">���� Kaydet</button>
+          <button class="btn-x3-secondary" onclick="cPanelSubPages.accountSettings()">������ İptal</button>
+        </div>
+        <div id="upResult" style="margin-top:12px"></div>
+      </div>
+    </div>`;
+  return html;
+};
+
+cPanelSubPages.saveProfile = function() {
+  const name = document.getElementById('upName').value.trim();
+  const result = document.getElementById('upResult');
+  PanelAPI.updateUser(PanelAPI.userId || 1, { name }).then(d => {
+    if (d.ok) {
+      PanelAPI.name = name;
+      localStorage.setItem('ocp_name', name);
+      result.innerHTML = `<div style="color:#27ae60;padding:12px;background:#ecfdf5;border-radius:3px">��� Profil güncellendi</div>`;
+      setTimeout(() => this.accountSettings(), 1000);
+    } else {
+      result.innerHTML = errBox(d.error || 'Güncellenemedi');
+    }
+  }).catch(e => { result.innerHTML = errBox(e.message); });
+};

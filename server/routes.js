@@ -68,19 +68,52 @@ module.exports = ({ run, runJson, auth, issueToken, sessions, PANEL_PASSWORD }) 
   }
 
   /* ==========================================================
-   * AUTH
+   * AUTH (kullanıcı adı + şifre, RBAC)
    * ========================================================== */
   router.post('/login', (req, res) => {
+    const username = (req.body && req.body.username) || 'admin';
     const pw = req.body && req.body.password;
     if (!pw) return res.status(400).json({ error: 'Parola gerekli' });
-    const ok = pw === PANEL_PASSWORD;
-    if (!ok) return res.status(401).json({ error: 'Hatalı parola' });
-    res.json({ token: issueToken(), user: os.userInfo().username, hostname: os.hostname() });
+
+    // Önce RBAC users.json'dan kullanıcı bul
+    const db = rbac.loadDB();
+    const user = rbac.findUser(db, username);
+
+    if (user && rbac.verifyPassword(pw, user.password)) {
+      return res.json({
+        token: issueToken(user),
+        user: user.username,
+        role: user.role,
+        name: user.name || user.username,
+        hostname: os.hostname()
+      });
+    }
+
+    // Geri uyumlu: admin kullanıcısı ve panel parolası
+    if (username === 'admin' && pw === PANEL_PASSWORD) {
+      return res.json({
+        token: issueToken({ id: 1, username: 'admin', role: 'admin', name: 'Panel Admin' }),
+        user: 'admin',
+        role: 'admin',
+        name: 'Panel Admin',
+        hostname: os.hostname()
+      });
+    }
+
+    return res.status(401).json({ error: 'Hatalı kullanıcı adı veya parola' });
   });
 
   router.post('/logout', auth, (req, res) => {
     sessions.delete(req.token);
     res.json({ ok: true });
+  });
+
+  router.get('/me', auth, (req, res) => {
+    res.json({
+      ok: true,
+      user: req.user,
+      roles: rbac.getRoles()
+    });
   });
 
   /* ==========================================================

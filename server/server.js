@@ -39,12 +39,23 @@ function getPanelPassword() {
 
 const PANEL_PASSWORD = getPanelPassword();
 
-/* ---------- Token yönetimi ---------- */
-const sessions = new Map(); // token -> { expires }
+/* ---------- RBAC (Rol Bazlı Erişim) ---------- */
+const rbac = require('./rbac');
 
-function issueToken() {
+/* ---------- Token yönetimi ---------- */
+const sessions = new Map(); // token -> { expires, user }
+
+function issueToken(user) {
   const token = crypto.randomBytes(32).toString('hex');
-  sessions.set(token, { expires: Date.now() + TOKEN_TTL_MS });
+  sessions.set(token, {
+    expires: Date.now() + TOKEN_TTL_MS,
+    user: user ? {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      name: user.name || user.username
+    } : null
+  });
   return token;
 }
 
@@ -55,6 +66,7 @@ function auth(req, res, next) {
   if (!s) return res.status(401).json({ error: 'Geçersiz veya süresi dolmuş oturum' });
   if (s.expires < Date.now()) { sessions.delete(token); return res.status(401).json({ error: 'Oturum süresi doldu' }); }
   req.token = token;
+  req.user = s.user;
   next();
 }
 
@@ -79,11 +91,13 @@ function runJson(cmd, timeout = 15000) {
 const api = require('./routes')({ run, runJson, auth, issueToken, sessions, PANEL_PASSWORD });
 const whm = require('./whm')({ run, sudo, auth });
 const backups = require('./backups')({ run, sudo, auth });
+const users = require('./users')({ auth, rbac, requirePermission: rbac.requirePermission });
 
 app.use(express.json({ limit: '10mb' }));
 app.use('/api', api);
 app.use('/api', whm);
 app.use('/api', backups);
+app.use('/api', users);
 
 /* ---------- Statik dosyalar (frontend) ---------- */
 app.use(express.static(ROOT));
