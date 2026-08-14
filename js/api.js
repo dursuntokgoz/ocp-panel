@@ -159,6 +159,7 @@ const PanelAPI = {
 
   /* --- DNS --- */
   getDnsZones() { return this.get('/dns-zones' + this.ownerParam()); },
+  updateDnsZone(domain, ip) { return this.request('PUT', '/dns-zones/' + encodeURIComponent(domain), { ip }); },
 
   /* --- Email (WHM) --- */
   getEmails(domain) {
@@ -166,6 +167,9 @@ const PanelAPI = {
     if (domain) qs += (qs ? '&' : '?') + 'domain=' + encodeURIComponent(domain);
     return this.get('/emails' + qs);
   },
+  addEmail(data) { return this.post('/emails', data); },
+  updateEmail(email, data) { return this.request('PUT', '/emails/' + encodeURIComponent(email), data); },
+  deleteEmail(email) { return this.request('DELETE', '/emails/' + encodeURIComponent(email)); },
 
   /* --- FTP (WHM) --- */
   getFtp() { return this.get('/ftp' + this.ownerParam()); },

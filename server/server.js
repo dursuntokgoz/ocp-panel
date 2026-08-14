@@ -88,7 +88,7 @@ function runJson(cmd, timeout = 15000) {
 }
 
 /* ---------- Route'lar ---------- */
-const api = require('./routes')({ run, runJson, auth, issueToken, sessions, PANEL_PASSWORD });
+const api = require('./routes')({ run, runJson, auth, issueToken, sessions, PANEL_PASSWORD, rbac });
 const whm = require('./whm')({ run, sudo, auth });
 const backups = require('./backups')({ run, sudo, auth });
 const users = require('./users')({ auth, rbac, requirePermission: rbac.requirePermission });

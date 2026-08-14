@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-module.exports = ({ run, runJson, auth, issueToken, sessions, PANEL_PASSWORD }) => {
+module.exports = ({ run, runJson, auth, issueToken, sessions, PANEL_PASSWORD, rbac }) => {
   const router = require('express').Router();
 
   /* ---------- yardımcılar ---------- */
