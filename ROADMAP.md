@@ -71,8 +71,8 @@
 - [x] **Gerçek modüller**: Terminal, File Manager, Cron Jobs, Process Manager, Error Logs, Disk Usage, MySQL, Resource Usage, CPU/Concurrent, Visitors, Bandwidth
 - [x] Sidebar istatistikleri gerçek veriler (disk, RAM, servis, proses, docker, sıcaklık)
 
-## 🔜 Gelecek
-- [ ] Gerçek zamanlı izleme (SSE/WebSocket ile CPU/RAM grafikleri)
-- [ ] Docker yönetimi (konteyner başlat/durdur/log)
-- [ ] Yedekleme otomasyonu (panel üzerinden)
-- [ ] Çok kullanıcılı yetkilendirme (rol bazlı)
+## ��� Gelecek
+- [x] Gerçek zamanlı izleme (SSE/WebSocket ile CPU/RAM grafikleri)
+- [x] Docker yönetimi (konteyner başlat/durdur/log)
+- [x] Yedekleme otomasyonu (panel üzerinden)
+- [x] Çok kullanıcılı yetkilendirme (rol bazlı)
