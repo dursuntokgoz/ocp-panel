@@ -192,7 +192,9 @@ const cPanelApp = {
     this.setupSearch();
     this.updateStats();
     this.loadSwitchAccount();
+    this.loadSwitchDomain();
     this.updateSwitchAccountIndicator();
+    this.updateSwitchDomainIndicator();
     console.log('OCP Panel Ready — ' + this.categories.reduce((n, c) => n + c.tools.length, 0) + ' modül yüklendi' + (PanelAPI.selectedReseller ? ' (reseller: ' + PanelAPI.selectedReseller + ')' : ''));
   },
 
@@ -350,7 +352,7 @@ renderDashboard: function() {
     select.onchange = () => this.onSwitchAccount(select.value);
   },
 
-  onSwitchAccount: function(username) {
+onSwitchAccount: function(username) {
     if (username) {
       PanelAPI.setSelectedReseller(username);
       PanelAPI.switchReseller(username).then(d => {
@@ -361,15 +363,16 @@ renderDashboard: function() {
       PanelAPI.setSelectedReseller(null);
       this.showToast('🔄 root (tüm hesaplar) görünümüne dönüldü');
     }
+    // Reseller değişince domain seçimini sıfırla ve domain dropdown'ını yenile
+    PanelAPI.setSelectedDomain(null);
+    this.loadSwitchDomain();
     this.updateSwitchAccountIndicator();
+    this.updateSwitchDomainIndicator();
     // Eğer WHM modülü açıksa yeniden yükle
     const mainContent = document.getElementById('mainContentArea');
     if (mainContent && mainContent.querySelector('.subpage-container')) {
       const breadcrumb = mainContent.querySelector('.breadcrumb');
       if (breadcrumb) {
-        // Modülü yeniden aç
-        const subpageTitle = breadcrumb.textContent.split('»').pop().trim();
-        // En basit yöntem: dashboard'a dön
         this.renderDashboard();
         this.showToast('ℹ️ ' + (username || 'root') + ' görünümü — modülleri yenileyin');
       }
@@ -381,6 +384,64 @@ renderDashboard: function() {
     if (indicator) {
       if (PanelAPI.selectedReseller) {
         indicator.textContent = '👤 ' + PanelAPI.selectedReseller;
+        indicator.style.display = 'inline-block';
+      } else {
+        indicator.style.display = 'none';
+      }
+    }
+  },
+
+  /* --- Switch Domain dropdown --- */
+  loadSwitchDomain: function() {
+    const select = document.getElementById('switchDomainSelect');
+    if (!select) return;
+    if (!PanelAPI.selectedReseller) {
+      select.innerHTML = '<option value="">Önce reseller seçin</option>';
+      select.disabled = true;
+      return;
+    }
+    select.disabled = false;
+    PanelAPI.getDomains().then(d => {
+      if (!d.domains || !d.domains.length) {
+        select.innerHTML = '<option value="">Domain yok</option>';
+        return;
+      }
+      select.innerHTML = '<option value="">— tüm domainler —</option>' +
+        d.domains.map(dom => {
+          const label = dom.domain + (dom.reseller ? ' (' + dom.reseller + ')' : '');
+          return `<option value="${dom.domain}">${label}</option>`;
+        }).join('');
+      if (PanelAPI.selectedDomain) select.value = PanelAPI.selectedDomain;
+    }).catch(() => {
+      select.innerHTML = '<option value="">Yüklenemedi</option>';
+    });
+    select.onchange = () => this.onSwitchDomain(select.value);
+  },
+
+  onSwitchDomain: function(domain) {
+    if (domain) {
+      PanelAPI.setSelectedDomain(domain);
+      PanelAPI.switchDomain(domain).then(d => {
+        this.showToast(`🔄 ${domain} domain'ine geçildi`);
+      }).catch(() => this.showToast('🔄 ' + domain + ' domain\'ine geçildi'));
+    } else {
+      PanelAPI.setSelectedDomain(null);
+      this.showToast('🔄 tüm domainler görünümüne dönüldü');
+    }
+    this.updateSwitchDomainIndicator();
+    // WHM modülü açıksa dashboard'a dön
+    const mainContent = document.getElementById('mainContentArea');
+    if (mainContent && mainContent.querySelector('.subpage-container')) {
+      this.renderDashboard();
+      this.showToast('ℹ️ ' + (domain || 'tüm domainler') + ' görünümü — modülleri yenileyin');
+    }
+  },
+
+  updateSwitchDomainIndicator: function() {
+    const indicator = document.getElementById('switchDomainIndicator');
+    if (indicator) {
+      if (PanelAPI.selectedDomain) {
+        indicator.textContent = '🌐 ' + PanelAPI.selectedDomain;
         indicator.style.display = 'inline-block';
       } else {
         indicator.style.display = 'none';

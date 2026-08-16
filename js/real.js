@@ -2105,7 +2105,62 @@ Object.assign(cPanelSubPages, {
     });
   },
 
-  /* ---------- Email Disk Usage ---------- */
+/* ---------- Email Disk Usage ---------- */
+  whmEmailDisk() {
+    const html = `
+      ${this.renderBreadcrumb('WHM', 'Email Functions » Email Disk Usage')}
+      <div class="subpage-container">
+        ${this.header('💾 Email Disk Usage', 'E-posta hesapları disk kullanımı ve kota')}
+        <div class="x3-form-box" style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
+          <input type="text" id="wedFilter" class="x3-input" placeholder="E-posta ara…" style="flex:1" oninput="cPanelSubPages.loadWhmEmailDisk()">
+          <button class="btn-x3-primary" onclick="cPanelSubPages.loadWhmEmailDisk()">🔄 Yenile</button>
+        </div>
+        <div id="wedBody">${loadingBox('E-posta disk kullanımı yükleniyor…')}</div>
+      </div>`;
+    setTimeout(() => this.loadWhmEmailDisk(), 50);
+    return html;
+  },
+
+  loadWhmEmailDisk() {
+    const body = document.getElementById('wedBody');
+    if (!body) return;
+    const q = ((document.getElementById('wedFilter') || {}).value || '').toLowerCase();
+    PanelAPI.getEmails().then(d => {
+      const list = d.emails.filter(a => !q || a.email.toLowerCase().includes(q));
+      if (!list.length) {
+        body.innerHTML = '<div class="x3-form-box" style="text-align:center;color:#889;padding:24px">E-posta hesabı yok</div>';
+        return;
+      }
+      const rows = list.map(a => {
+        const used = a.size || 0;
+        const quota = a.quota || 0;
+        const pct = quota > 0 ? Math.min(Math.round((used / quota) * 100), 100) : 0;
+        const bar = `<div class="stats-bar-bg"><div class="stats-bar-fill" style="width:${pct}%;background:${pct >= 90 ? '#e74c3c' : pct >= 70 ? '#f39c12' : '#27ae60'}"></div></div>`;
+        return `
+          <tr>
+            <td style="padding:8px 6px"><code>${esc(a.email)}</code></td>
+            <td style="padding:8px 6px;text-align:right">${fmtBytes(used)}</td>
+            <td style="padding:8px 6px;text-align:right">${quota > 0 ? fmtBytes(quota) : '∞'}</td>
+            <td style="padding:8px 6px">${bar}<div style="font-size:11px;color:#667;margin-top:2px">${pct}%</div></td>
+            <td style="padding:8px 6px">${a.domain || '—'}</td>
+          </tr>`;
+      }).join('');
+      body.innerHTML = `
+        <div class="x3-form-box" style="padding:0;overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead><tr style="text-align:left;border-bottom:2px solid #e5e9f0;color:#556">
+              <th style="padding:10px 6px">E-posta</th>
+              <th style="padding:10px 6px;text-align:right">Kullanım</th>
+              <th style="padding:10px 6px;text-align:right">Kota</th>
+              <th style="padding:10px 6px">Doluluk</th>
+              <th style="padding:10px 6px">Domain</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    }).catch(e => { body.innerHTML = errBox(e.message); });
+  },
+
   /* ==========================================================
    * WHM — FTP FUNCTIONS (gerçek vsftpd sanal kullanıcıları)
    * ========================================================== */
