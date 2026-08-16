@@ -522,7 +522,8 @@ async login() {
 
   async logout() {
     await PanelAPI.logout();
-    location.reload();
+    PanelAPI.clearSession();
+    this.show();
   }
 };
 
