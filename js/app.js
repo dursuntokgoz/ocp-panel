@@ -471,6 +471,10 @@ onSwitchAccount: function(username) {
     t.textContent = msg;
     box.appendChild(t);
     setTimeout(() => t.remove(), 3000);
+  },
+
+  logout: function() {
+    PanelAuth.logout();
   }
 };
 
