@@ -33,10 +33,10 @@ fi
 # Run tests
 if [[ $# -eq 0 ]]; then
   echo "🚀 Running full test suite..."
-  npx playwright test --config=tests/playwright.config.js
+  npx playwright test --config=playwright.config.js
 else
   echo "🚀 Running: $*"
-  npx playwright test --config=tests/playwright.config.js "$@"
+  npx playwright test --config=playwright.config.js "$@"
 fi
 
 EXIT_CODE=$?
