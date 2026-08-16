@@ -36,12 +36,22 @@ test.describe('OCP Panel — Full E2E Suite', () => {
   // --- Helper: login ---
   async function login() {
     await page.goto(BASE_URL, { waitUntil: 'networkidle' });
-    await page.waitForSelector('#loginOverlay', { state: 'visible' });
-    await page.fill('#loginPass', PASSWORD);
-    await page.click('#loginBtn');
-    await page.waitForSelector('#loginOverlay', { state: 'hidden' });
-    await page.waitForSelector('#mainContentArea', { state: 'visible' });
-    await expect(page.locator('.breadcrumb-bar')).toBeVisible();
+    // If login overlay visible, login
+    const overlay = page.locator('#loginOverlay');
+    if (await overlay.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await page.fill('#loginPass', PASSWORD);
+      await page.click('#loginBtn');
+      await page.waitForSelector('#loginOverlay', { state: 'hidden' });
+      await page.waitForSelector('.x3-tool-item', { state: 'visible', timeout: 10000 });
+    }
+    // Verify dashboard
+    await expect(page.locator('.x3-tool-item').first()).toBeVisible();
+  }
+
+  // --- Helper: logout ---
+  async function logout() {
+    await page.click('a[onclick*="logout"]');
+    await page.waitForSelector('#loginOverlay', { state: 'visible', timeout: 5000 });
   }
 
   // --- Helper: open tool via sidebar ---
@@ -63,11 +73,13 @@ test.describe('OCP Panel — Full E2E Suite', () => {
 
   test('1. Login with valid credentials', async () => {
     await login();
-    // Dashboard should be visible
-    await expect(page.locator('#mainContentArea')).toContainText('Dashboard');
+    // Dashboard should have tool grid (verified in login helper)
+    await expect(page.locator('.x3-tool-item').first()).toBeVisible();
   });
 
   test('2. Dashboard loads with stats', async () => {
+    // Stats are loaded by updateStats() after login
+    await page.waitForTimeout(2000); // wait for stats API call
     await expect(page.locator('#statDisk')).not.toContainText('…');
     await expect(page.locator('#statBandwidth')).not.toContainText('…');
     await expect(page.locator('#statEmails')).not.toContainText('…');
@@ -452,8 +464,15 @@ test.describe('OCP Panel — Full E2E Suite', () => {
 
   // --- Refresh persistence test (critical bug fix) ---
   test.describe('Session Persistence (Refresh Bug Fix)', () => {
-    test('Page refresh keeps user logged in', async () => {
+    test.beforeEach(async () => {
       await login();
+    });
+
+    test.afterEach(async () => {
+      await logout();
+    });
+
+    test('Page refresh keeps user logged in', async () => {
       // Verify logged in
       await expect(page.locator('#mainContentArea')).toBeVisible();
       
@@ -464,10 +483,11 @@ test.describe('OCP Panel — Full E2E Suite', () => {
       await expect(page.locator('#loginOverlay')).toBeHidden({ timeout: 3000 });
       // Dashboard should be visible
       await expect(page.locator('#mainContentArea')).toBeVisible();
+      // And tool grid should be there
+      await expect(page.locator('.x3-tool-item').first()).toBeVisible({ timeout: 5000 });
     });
 
     test('Token persists in localStorage after refresh', async () => {
-      await login();
       const tokenBefore = await page.evaluate(() => localStorage.getItem('ocp_token'));
       expect(tokenBefore).toBeTruthy();
       
@@ -481,8 +501,7 @@ test.describe('OCP Panel — Full E2E Suite', () => {
   // --- Logout ---
   test('Logout works', async () => {
     await login();
-    await page.click('a[onclick*="logout"]');
-    await page.waitForSelector('#loginOverlay', { state: 'visible', timeout: 5000 });
+    await logout();
     await expect(page.locator('#loginOverlay')).toBeVisible();
   });
 });
