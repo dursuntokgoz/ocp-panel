@@ -11,7 +11,14 @@ const PanelAPI = {
   init() {
     this.token = localStorage.getItem('ocp_token') || null;
     this.user = localStorage.getItem('ocp_user') || null;
+    this.role = localStorage.getItem('ocp_role') || null;
+    this.name = localStorage.getItem('ocp_name') || null;
+    this.userId = parseInt(localStorage.getItem('ocp_userId') || '0', 10) || null;
     this.initSelectedReseller();
+  },
+
+  get isAuthed() {
+    return !!this.token;
   },
 
   saveSession(token, user) {
@@ -25,15 +32,6 @@ const PanelAPI = {
     localStorage.setItem('ocp_role', user.role || '');
     localStorage.setItem('ocp_name', user.name || '');
     localStorage.setItem('ocp_userId', String(user.id || ''));
-  },
-
-  init() {
-    this.token = localStorage.getItem('ocp_token') || null;
-    this.user = localStorage.getItem('ocp_user') || null;
-    this.role = localStorage.getItem('ocp_role') || null;
-    this.name = localStorage.getItem('ocp_name') || null;
-    this.userId = parseInt(localStorage.getItem('ocp_userId') || '0', 10) || null;
-    this.initSelectedReseller();
   },
 
   clearSession() {
@@ -77,8 +75,9 @@ const PanelAPI = {
     });
     if (r.status === 401) {
       this.clearSession();
-      location.reload();
-      throw new Error('Oturum süresi doldu');
+      // Sayfa yenileme YOK — sadece login overlay'ını göster
+      if (typeof PanelAuth !== 'undefined') PanelAuth.show();
+      throw new Error('Oturum süresi doldu, lütfen tekrar giriş yapın');
     }
     if (!r.ok) {
       const d = await r.json().catch(() => ({}));
