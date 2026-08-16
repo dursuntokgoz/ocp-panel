@@ -24,11 +24,12 @@ echo "   Base URL: $BASE_URL"
 echo "   Password: ${OCP_PASSWORD:0:4}****"
 echo ""
 
-# Ensure Playwright browsers are installed
-if ! npx playwright install chromium --dry-run 2>/dev/null | grep -q "already installed"; then
-  echo "📦 Installing Playwright Chromium..."
-  npx playwright install chromium --with-deps
-fi
+# Ensure Playwright browsers are installed (skip dry-run to avoid npm install trigger)
+# Chromium already installed via npx playwright install chromium --with-deps
+# if ! npx playwright install chromium --dry-run 2>/dev/null | grep -q "already installed"; then
+#   echo "📦 Installing Playwright Chromium..."
+#   npx playwright install chromium --with-deps
+# fi
 
 # Run tests
 if [[ $# -eq 0 ]]; then
