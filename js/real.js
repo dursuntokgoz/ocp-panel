@@ -1381,14 +1381,44 @@ Object.assign(cPanelSubPages, {
 
   /* ---------- Terminate an Account ---------- */
   terminateAccount() {
-    const sel = document.getElementById('maSel');
+    const html = `
+      ${this.renderBreadcrumb('WHM', 'Account Functions \u00BB Terminate an Account')}
+      <div class="subpage-container">
+        ${this.header('🗑 Terminate an Account', 'Reseller hesab\u0131n\u0131 sonland\u0131r \u2014 t\u00FCm domain, email, ftp ve dosyalar silinir')}
+        <div id="taBody">
+          <div class="x3-form-box" style="margin-bottom:12px">
+            <label style="font-size:12px;color:#667">Reseller Se\u00E7</label>
+            <select id="taSel" class="x3-input" style="margin-top:4px"></select>
+          </div>
+          <div class="x3-form-box" style="border-color:#e74c3c">
+            <p style="margin:0 0 10px;font-size:13px;color:#c0392b"><strong>\u26A0\uFE0F Dikkat:</strong> Bu i\u015Flem sistem kullan\u0131c\u0131s\u0131n\u0131, ev dizinini, t\u00FCm domain'lerini, email ve FTP hesaplar\u0131n\u0131 kal\u0131c\u0131 olarak siler.</p>
+            <button class="btn-x3-sm danger" onclick="cPanelSubPages.terminateAccountSubmit()"\u003E\uD83D\uDDD1 Reseller\u0131 Sonland\u0131r\u003C/button\u003E
+            <div id="taMsg" style="margin-top:8px;font-size:13px"></div>
+          </div>
+        </div>
+      </div>`;
+    setTimeout(() => {
+      PanelAPI.getResellers().then(d => {
+        const sel = document.getElementById('taSel');
+        if (sel) sel.innerHTML = d.resellers.map(r => `<option value="${esc(r.username)}">${esc(r.username)} (${r.domainCount} domain)</option>`).join('');
+      }).catch(() => {});
+    }, 50);
+    return html;
+  },
+
+  terminateAccountSubmit() {
+    const sel = document.getElementById('taSel');
+    const msg = document.getElementById('taMsg');
     if (!sel || !sel.value) return;
     const uname = sel.value;
     if (!confirm(`Hesap "${uname}" sonlandırılsın mı?\n\n⚠️ Sistem kullanıcısı, tüm dosyalar ve domain'ler silinecek!`)) return;
     PanelAPI.deleteReseller(uname).then(d => {
-      this.toast('🗑 Hesap sonlandırıldı: ' + uname + (d.removedDomains ? ' (' + d.removedDomains + ' domain)' : ''));
-      location.reload();
-    }).catch(e => this.toast('❌ ' + e.message));
+      if (msg) msg.innerHTML = `<span style="color:#27ae60">✅ Sonlandırıldı — ${d.removedDomains || 0} domain kaldırıldı</span>`;
+      this.toast('🗑 Hesap sonlandırıldı');
+      setTimeout(() => location.reload(), 1200);
+    }).catch(e => {
+      if (msg) msg.innerHTML = `<span style="color:#c0392b">❌ ${esc(e.message)}</span>`;
+    });
   },
 
   /* ======================================================

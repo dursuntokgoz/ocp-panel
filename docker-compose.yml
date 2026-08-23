@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  ocp-panel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: dursuntokgoz/ocp-panel:latest
+    container_name: ocp-panel
+    restart: unless-stopped
+    ports:
+      - "2083:2083"
+      - "80:80"
+      - "443:443"
+    environment:
+      - NODE_ENV=production
+      - PORT=2083
+      - PANEL_PASSWORD_FILE=/home/dursun/.config/ocp-panel/password
+      - SSL_KEY=/app/ssl/ocp-panel.key
+      - SSL_CERT=/app/ssl/ocp-panel.crt
+    volumes:
+      - ocp-panel-data:/home/dursun/.config/ocp-panel
+      - ocp-panel-ssl:/app/ssl
+      - /etc/nginx/sites-available:/etc/nginx/sites-available
+      - /etc/nginx/sites-enabled:/etc/nginx/sites-enabled
+      - /var/mail/vhosts:/var/mail/vhosts
+      - /etc/dovecot:/etc/dovecot
+      - /etc/postfix:/etc/postfix
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /etc/hosts:/etc/hosts
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+      - DAC_OVERRIDE
+    security_opt:
+      - apparmor:unconfined
+    healthcheck:
+      test: ["CMD", "curl", "-kf", "https://localhost:2083/api/stats"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  ocp-panel-data:
+  ocp-panel-ssl:
+
+networks:
+  default:
+    name: ocp-panel-network

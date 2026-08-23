@@ -92,6 +92,10 @@ const api = require('./routes')({ run, runJson, auth, issueToken, sessions, PANE
 const whm = require('./whm')({ run, sudo, auth });
 const backups = require('./backups')({ run, sudo, auth });
 const users = require('./users')({ auth, rbac, requirePermission: rbac.requirePermission });
+const ssl = require('./ssl')({ run, sudo, auth });
+const phpSelector = require('./php-selector')({ run, sudo, auth });
+const firewall = require('./firewall')({ run, sudo, auth });
+const monitoring = require('./monitoring')({ run, sudo, auth });
 const { setupSwagger } = require('./swagger');
 
 app.use(express.json({ limit: '10mb' }));
@@ -99,6 +103,10 @@ app.use('/api', api);
 app.use('/api', whm);
 app.use('/api', backups);
 app.use('/api', users);
+app.use('/api', ssl);
+app.use('/api', phpSelector);
+app.use('/api', firewall);
+app.use('/api', monitoring);
 
 /* ---------- Swagger API Docs ---------- */
 setupSwagger(app);

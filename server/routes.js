@@ -11,6 +11,28 @@ const os = require('os');
 module.exports = ({ run, runJson, auth, issueToken, sessions, PANEL_PASSWORD, rbac }) => {
   const router = require('express').Router();
 
+  /* ---------- Rate Limiting Middleware ---------- */
+  const rateLimit = require('express-rate-limit');
+  
+  const apiLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 dakika
+    max: 100, // IP başına dakikada max 100 istek
+    message: { error: 'Çok fazla istek, lütfen bekleyin' },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 dakika
+    max: 5, // IP başına 15 dakikada max 5 login denemesi
+    message: { error: 'Çok fazla başarısız giriş denemesi, 15 dakika bekleyin' },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  router.use('/api/', apiLimiter);
+  router.post('/api/login', authLimiter);
+
   /* ---------- yardımcılar ---------- */
   const sudo = (cmd, timeout) => run(`sudo -n ${cmd}`, timeout || 15000);
 

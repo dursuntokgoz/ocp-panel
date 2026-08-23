@@ -176,9 +176,9 @@ test.describe('OCP Panel — Full E2E Suite', () => {
     });
 
     test('Terminate an Account', async () => {
-      // terminateAccount uses select from Modify Account page, not a standalone subpage
-      // Skip - tested indirectly via Modify Account
-      test.skip('Terminate an Account uses shared dropdown from Modify Account page');
+      await openWhmTool('terminateAccount');
+      await expect(page.locator('#taBody')).toBeVisible();
+      await expect(page.locator('#taSel')).toBeVisible();
     });
   });
 

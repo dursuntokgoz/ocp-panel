@@ -2,22 +2,80 @@
  * OCP Panel — Yedekleme Otomasyonu Modülü
  * Gerçek entegrasyon: tar.gz arşivleri + rsync + crontab zamanlama
  * Veri deposu: ~/.config/ocp-panel/backups.json
+ * S3/MinIO desteği: @aws-sdk/client-s3
  * ============================================================ */
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 module.exports = ({ run, sudo, auth }) => {
   const router = require('express').Router();
   const DATA_FILE = path.join(os.homedir(), '.config', 'ocp-panel', 'backups.json');
   const DEFAULT_BACKUP_DIR = path.join(os.homedir(), 'backups');
 
+  /* ---------- S3/MinIO Client Factory ---------- */
+  function getS3Client(settings) {
+    if (!settings?.s3?.enabled || !settings.s3.endpoint || !settings.s3.accessKey || !settings.s3.secretKey || !settings.s3.bucket) {
+      return null;
+    }
+    return new S3Client({
+      region: settings.s3.region || 'auto',
+      endpoint: settings.s3.endpoint,
+      credentials: {
+        accessKeyId: settings.s3.accessKey,
+        secretAccessKey: settings.s3.secretKey,
+      },
+      forcePathStyle: settings.s3.forcePathStyle !== false, // MinIO için true
+    });
+  }
+
+  async function uploadToS3(client, bucket, key, filePath) {
+    const fileStream = fs.createReadStream(filePath);
+    const stat = fs.statSync(filePath);
+    await client.send(new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: fileStream,
+      ContentLength: stat.size,
+      ContentType: 'application/gzip',
+    }));
+    return { key, size: stat.size };
+  }
+
+  async function downloadFromS3(client, bucket, key, destPath) {
+    const response = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+    const writeStream = fs.createWriteStream(destPath);
+    await new Promise((resolve, reject) => {
+      response.Body.pipe(writeStream)
+        .on('finish', resolve)
+        .on('error', reject);
+    });
+  }
+
+  async function deleteFromS3(client, bucket, key) {
+    await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+  }
+
+  async function listS3Backups(client, bucket, prefix = 'backups/') {
+    const response = await client.send(new ListObjectsV2Command({
+      Bucket: bucket,
+      Prefix: prefix,
+    }));
+    return (response.Contents || []).map(obj => ({
+      key: obj.Key,
+      size: obj.Size,
+      lastModified: obj.LastModified,
+    }));
+  }
+
   /* ---------- veri deposu ---------- */
   function loadDB() {
     try { return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); }
-    catch (e) { return { backups: [], schedule: null, history: [] }; }
+    catch (e) { return { backups: [], schedule: null, history: [], settings: {} }; }
   }
 
   function saveDB(db) {
@@ -382,28 +440,202 @@ module.exports = ({ run, sudo, auth }) => {
   });
 
   /* ==========================================================
-   * YEDEK İNDİR
+   * S3/MinIO YEDEK YÖNETİMİ
    * ========================================================== */
-  router.get('/backups/download/:name', auth, (req, res) => {
-    const name = String(req.params.name).trim();
+  
+  // S3 ayarlarını kaydet
+  router.post('/backups/settings/s3', auth, (req, res) => {
+    const b = req.body || {};
     const db = loadDB();
-    const dir = (db.settings && db.settings.dir) || DEFAULT_BACKUP_DIR;
-    const fp = path.join(path.resolve(dir), name);
-    // Güvenlik: yol kaçışı koruması
-    const resolvedDir = path.resolve(dir);
-    const resolvedFp = path.resolve(fp);
-    if (!resolvedFp.startsWith(resolvedDir + path.sep) && resolvedFp !== resolvedDir) {
-      return res.status(400).json({ error: 'Geçersiz dosya yolu' });
-    }
-    if (!fs.existsSync(resolvedFp) || !fs.statSync(resolvedFp).isFile()) {
-      return res.status(404).json({ error: 'Yedek bulunamadı: ' + name });
-    }
-    res.download(resolvedFp, name, (err) => {
-      if (err) {
-        console.error('[backup] download error:', err.message);
-        if (!res.headersSent) res.status(500).json({ error: 'İndirme hatası' });
+    db.settings = db.settings || {};
+    db.settings.s3 = {
+      enabled: !!b.enabled,
+      endpoint: String(b.endpoint || '').trim(),
+      region: String(b.region || 'auto').trim(),
+      accessKey: String(b.accessKey || '').trim(),
+      secretKey: String(b.secretKey || '').trim(),
+      bucket: String(b.bucket || '').trim(),
+      forcePathStyle: b.forcePathStyle !== false,
+      prefix: String(b.prefix || 'backups/').trim(),
+    };
+    saveDB(db);
+    res.json({ ok: true, settings: db.settings });
+  });
+
+  // S3 bağlantısını test et
+  router.post('/backups/s3/test', auth, (req, res) => {
+    const db = loadDB();
+    const client = getS3Client(db.settings);
+    if (!client) return res.status(400).json({ error: 'S3 ayarları eksik' });
+    
+    client.send(new ListObjectsV2Command({ Bucket: db.settings.s3.bucket, MaxKeys: 1 }))
+      .then(() => res.json({ ok: true, message: 'S3 bağlantısı başarılı' }))
+      .catch(e => res.status(400).json({ error: 'S3 bağlantı hatası: ' + e.message }));
+  });
+
+  // S3'ye yedek yükle
+  router.post('/backups/:name/s3/upload', auth, async (req, res) => {
+    try {
+      const name = String(req.params.name).trim();
+      const db = loadDB();
+      const client = getS3Client(db.settings);
+      if (!client) return res.status(400).json({ error: 'S3 ayarları eksik' });
+
+      const dir = (db.settings && db.settings.dir) || DEFAULT_BACKUP_DIR;
+      const fp = path.join(path.resolve(dir), name);
+      if (!fs.existsSync(fp)) return res.status(404).json({ error: 'Yedek bulunamadı' });
+
+      const prefix = db.settings.s3?.prefix || 'backups/';
+      const key = prefix + name;
+      await uploadToS3(client, db.settings.s3.bucket, key, fp);
+      
+      // DB kaydını güncelle
+      const meta = db.backups.find(x => x.file === name);
+      if (meta) {
+        meta.s3 = { key, uploaded: new Date().toISOString() };
+        saveDB(db);
       }
-    });
+      
+      res.json({ ok: true, message: 'S3\'e yüklendi: ' + key });
+    } catch (e) {
+      res.status(500).json({ error: 'S3 yükleme hatası: ' + e.message });
+    }
+  });
+
+  // S3'ten yedek indir
+  router.post('/backups/:name/s3/download', auth, async (req, res) => {
+    try {
+      const name = String(req.params.name).trim();
+      const db = loadDB();
+      const client = getS3Client(db.settings);
+      if (!client) return res.status(400).json({ error: 'S3 ayarları eksik' });
+
+      const dir = (db.settings && db.settings.dir) || DEFAULT_BACKUP_DIR;
+      const fp = path.join(path.resolve(dir), name);
+      const meta = db.backups.find(x => x.file === name);
+      const key = meta?.s3?.key || (db.settings.s3?.prefix || 'backups/') + name;
+      
+      await downloadFromS3(client, db.settings.s3.bucket, key, fp);
+      res.json({ ok: true, message: 'S3\'ten indirildi: ' + name });
+    } catch (e) {
+      res.status(500).json({ error: 'S3 indirme hatası: ' + e.message });
+    }
+  });
+
+  // S3 yedeklerini listele
+  router.get('/backups/s3/list', auth, async (req, res) => {
+    try {
+      const db = loadDB();
+      const client = getS3Client(db.settings);
+      if (!client) return res.status(400).json({ error: 'S3 ayarları eksik' });
+
+      const prefix = db.settings.s3?.prefix || 'backups/';
+      const items = await listS3Backups(client, db.settings.s3.bucket, prefix);
+      res.json({ ok: true, backups: items });
+    } catch (e) {
+      res.status(500).json({ error: 'S3 listeleme hatası: ' + e.message });
+    }
+  });
+
+  // S3 yedeğini sil
+  router.delete('/backups/:name/s3/delete', auth, async (req, res) => {
+    try {
+      const name = String(req.params.name).trim();
+      const db = loadDB();
+      const client = getS3Client(db.settings);
+      if (!client) return res.status(400).json({ error: 'S3 ayarları eksik' });
+
+      const meta = db.backups.find(x => x.file === name);
+      const key = meta?.s3?.key || (db.settings.s3?.prefix || 'backups/') + name;
+      
+      await deleteFromS3(client, db.settings.s3.bucket, key);
+      
+      if (meta) {
+        delete meta.s3;
+        saveDB(db);
+      }
+      
+      res.json({ ok: true, message: 'S3\'ten silindi: ' + name });
+    } catch (e) {
+      res.status(500).json({ error: 'S3 silme hatası: ' + e.message });
+    }
+  });
+
+  // Yedek oluştur + S3'e otomatik yükle
+  router.post('/backups/with-s3', auth, async (req, res) => {
+    try {
+      const b = req.body || {};
+      const db = loadDB();
+      const dir = (b.dir || (db.settings && db.settings.dir) || DEFAULT_BACKUP_DIR).toString();
+
+      let name = b.name ? String(b.name).trim() : null;
+      if (name && !SAFE_NAME.test(name)) return res.status(400).json({ error: 'Geçersiz yedek adı' });
+      if (!name) {
+        const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        name = 'backup-' + ts;
+      }
+      if (!name.endsWith('.tar.gz')) name += '.tar.gz';
+
+      const sources = validateSources(b.sources || (db.settings && db.settings.sources));
+      if (sources && sources.error) return res.status(400).json({ error: sources.error });
+
+      const target = path.join(path.resolve(dir), name);
+      for (const s of (sources || [])) {
+        if (target.startsWith(s + path.sep) || target === s) {
+          return res.status(400).json({ error: 'Hedef kaynak dizinin içinde olamaz' });
+        }
+      }
+
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      const tarParts = (sources || [os.homedir()]).map(s => {
+        const base = path.basename(s);
+        return `-C ${JSON.stringify(path.dirname(s))} ${JSON.stringify(base)}`;
+      });
+      const cmd = `tar -czf ${JSON.stringify(target)} ${tarParts.join(' ')} 2>&1`;
+      const started = new Date().toISOString();
+
+      const { exec } = require('child_process');
+      exec(cmd, { timeout: 3600000, maxBuffer: 64 * 1024 * 1024 }, async (err, stdout, stderr) => {
+        const ended = new Date().toISOString();
+        const durationSec = Math.round((new Date(ended) - new Date(started)) / 1000);
+        if (err) {
+          const msg = (stderr || stdout || err.message).trim();
+          db.history = db.history || [];
+          db.history.push({ action: 'create', name, ok: false, error: msg.slice(0, 300), started, ended, durationSec });
+          saveDB(db);
+          return res.status(500).json({ error: msg.slice(0, 500) });
+        }
+        let size = 0;
+        try { size = fs.statSync(target).size; } catch (e) {}
+        const rec = { file: name, name: name.replace(/\.tar\.gz$/i, ''), sources: sources || [os.homedir()], dir, size, sizeH: fmtBytes(size), created: started, durationSec };
+        db.backups = db.backups || [];
+        db.backups.push(rec);
+        db.history = db.history || [];
+        db.history.push({ action: 'create', name, ok: true, size, durationSec, started, ended });
+        saveDB(db);
+
+        // S3'e yükle
+        let s3Result = null;
+        const client = getS3Client(db.settings);
+        if (client && db.settings.s3?.enabled) {
+          try {
+            const prefix = db.settings.s3?.prefix || 'backups/';
+            const key = prefix + name;
+            await uploadToS3(client, db.settings.s3.bucket, key, target);
+            rec.s3 = { key, uploaded: new Date().toISOString() };
+            saveDB(db);
+            s3Result = { key, uploaded: true };
+          } catch (s3Err) {
+            console.error('[backup] S3 upload failed:', s3Err.message);
+            s3Result = { error: s3Err.message };
+          }
+        }
+
+        res.json({ ok: true, backup: rec, message: `Yedek oluşturuldu: ${name} (${fmtBytes(size)}, ${durationSec}s)`, s3: s3Result });
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
   return router;
