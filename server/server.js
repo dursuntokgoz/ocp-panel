@@ -112,7 +112,15 @@ app.use('/api', monitoring);
 setupSwagger(app);
 
 /* ---------- Statik dosyalar (frontend) ---------- */
-app.use(express.static(ROOT));
+app.use(express.static(ROOT, {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html') || filePath.endsWith('.js') || filePath.endsWith('.css')) {
+      res.setHeader('Content-Type', filePath.endsWith('.html') ? 'text/html; charset=utf-8' : 
+                              filePath.endsWith('.js') ? 'application/javascript; charset=utf-8' : 
+                              'text/css; charset=utf-8');
+    }
+  }
+}));
 // SPA fallback
 app.get('/', (req, res) => res.sendFile(path.join(ROOT, 'index.html')));
 

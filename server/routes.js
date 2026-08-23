@@ -23,9 +23,9 @@ module.exports = ({ run, runJson, auth, issueToken, sessions, PANEL_PASSWORD, rb
   });
   
   const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 dakika
-    max: 5, // IP başına 15 dakikada max 5 login denemesi
-    message: { error: 'Çok fazla başarısız giriş denemesi, 15 dakika bekleyin' },
+    windowMs: 60 * 1000, // 1 dakika
+    max: 20, // IP başına dakikada max 20 login denemesi
+    message: { error: 'Çok fazla başarısız giriş denemesi, 1 dakika bekleyin' },
     standardHeaders: true,
     legacyHeaders: false,
   });
