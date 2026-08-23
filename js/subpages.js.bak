@@ -2549,21 +2549,20 @@ const cPanelSubPages = {
           <div class="terminal-body" id="termBody">
             <p>OCP Panel Terminal — simülasyon modu</p>
             <p>Kullanılabilir komutlar: <code>help</code>, <code>ls</code>, <code>pwd</code>, <code>whoami</code>, <code>clear</code></p>
-            <div id="termOutput"></div>
-            <p class="term-line"><span class="term-prompt">[${X3Store.getAccount().user}@ocp-panel ~]$</span> <input type="text" id="termInput" class="x3-input" style="border:none;background:transparent;outline:none;width:100%;font-family:inherit;font-size:13px;color:#c9d1d9"></p>
+            <p class="term-line"><span class="term-prompt">[${X3Store.getAccount().user}@ocp-panel ~]$</span> <span id="termInput"></span></p>
           </div>
         </div>
         <div style="display:flex;gap:0.5rem;margin-top:10px">
-          <button id="termBtn" class="btn-x3-primary" onclick="cPanelSubPages.termExec()">▶ Çalıştır</button>
+          <input type="text" id="termCmd" class="x3-input" placeholder="komut girin..." onkeydown="if(event.key==='Enter')cPanelSubPages.termExec()" style="flex:1">
+          <button class="btn-x3-primary" onclick="cPanelSubPages.termExec()">▶ Çalıştır</button>
         </div>
       </div>
     `;
   },
 
   termExec() {
-    const cmd = document.getElementById('termInput').value.trim();
-    const output = document.getElementById('termOutput');
-    const input = document.getElementById('termInput');
+    const cmd = document.getElementById('termCmd').value.trim();
+    const body = document.getElementById('termBody');
     const user = X3Store.getAccount().user;
     const responses = {
       'help': 'Kullanılabilir: help, ls, pwd, whoami, clear, date, uptime',
@@ -2575,20 +2574,20 @@ const cPanelSubPages = {
       'clear': '__CLEAR__',
     };
     if (cmd === '') return;
-    if (responses[cmd] === '__CLEAR__') {
-      output.innerHTML = '';
+    const out = responses[cmd] !== undefined ? responses[cmd] : `bash: ${cmd}: komut bulunamadı (simülasyon)`;
+    if (out === '__CLEAR__') {
+      body.innerHTML = '';
     } else {
-      const out = responses[cmd] !== undefined ? responses[cmd] : `bash: ${cmd}: komut bulunamadı (simülasyon)`;
       const line = document.createElement('p');
       line.className = 'term-line';
       line.innerHTML = `<span class="term-prompt">[${user}@ocp-panel ~]$</span> ${cmd}`;
-      output.appendChild(line);
+      body.appendChild(line);
       const res = document.createElement('p');
       res.textContent = out;
-      output.appendChild(res);
+      body.appendChild(res);
     }
-    input.value = '';
-    output.scrollTop = output.scrollHeight;
+    document.getElementById('termCmd').value = '';
+    body.scrollTop = body.scrollHeight;
   },
 
   cronJobs() {
@@ -2605,48 +2604,44 @@ const cPanelSubPages = {
       ${this.renderBreadcrumb('Advanced', 'Cron Jobs')}
       <div class="subpage-container">
         ${this.header('⏰ Cron Jobs', 'Zamanlanmış görevler.')}
-        <div id="cronBody">
-          <div class="x3-form-box">
-            <h3>Add New Cron Job</h3>
-            <div class="form-grid">
-              <div class="form-group">
-                <label>Komut:</label>
-                <input type="text" id="cronCmd" class="x3-input" placeholder="/usr/bin/php /home/${X3Store.getAccount().user}/public_html/cron.php" style="min-width:320px">
-              </div>
-              <div class="form-group">
-                <label>Dakika:</label>
-                <input type="text" id="cronMin" class="x3-input" value="0">
-              </div>
-              <div class="form-group">
-                <label>Saat:</label>
-                <input type="text" id="cronHour" class="x3-input" value="3">
-              </div>
-              <div class="form-group">
-                <label>Gün (ay):</label>
-                <input type="text" id="cronDay" class="x3-input" value="*">
-              </div>
-              <div class="form-group">
-                <label>Ay:</label>
-                <input type="text" id="cronMonth" class="x3-input" value="*">
-              </div>
-              <div class="form-group">
-                <label>Haftanın Günü:</label>
-                <input type="text" id="cronWeekday" class="x3-input" value="*">
-              </div>
+        <div class="x3-form-box">
+          <h3>Add New Cron Job</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Komut:</label>
+              <input type="text" id="cronCmd" class="x3-input" placeholder="/usr/bin/php /home/${X3Store.getAccount().user}/public_html/cron.php" style="min-width:320px">
             </div>
-            <button class="btn-x3-primary" onclick="cPanelSubPages.addCron()">+ Add Cron Job</button>
+            <div class="form-group">
+              <label>Dakika:</label>
+              <input type="text" id="cronMin" class="x3-input" value="0">
+            </div>
+            <div class="form-group">
+              <label>Saat:</label>
+              <input type="text" id="cronHour" class="x3-input" value="3">
+            </div>
+            <div class="form-group">
+              <label>Gün (ay):</label>
+              <input type="text" id="cronDay" class="x3-input" value="*">
+            </div>
+            <div class="form-group">
+              <label>Ay:</label>
+              <input type="text" id="cronMonth" class="x3-input" value="*">
+            </div>
+            <div class="form-group">
+              <label>Haftanın Günü:</label>
+              <input type="text" id="cronWeekday" class="x3-input" value="*">
+            </div>
           </div>
-          <h3>Current Cron Jobs</h3>
-          <table class="x3-data-table">
-            <thead><tr><th>Zamanlama</th><th>Komut</th><th>Durum</th><th>İşlem</th></tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
+          <button class="btn-x3-primary" onclick="cPanelSubPages.addCron()">+ Add Cron Job</button>
         </div>
+        <h3>Current Cron Jobs</h3>
+        <table class="x3-data-table">
+          <thead><tr><th>Zamanlama</th><th>Komut</th><th>Durum</th><th>İşlem</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
       </div>
     `;
   },
-
-  cron: function() { return this.cronJobs(); },
 
   addCron() {
     const cmd = document.getElementById('cronCmd').value.trim();

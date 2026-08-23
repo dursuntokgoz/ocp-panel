@@ -209,6 +209,8 @@ test.describe('OCP Panel — Full E2E Suite', () => {
       await expect(page.locator('#lpBody')).toBeVisible();
       await page.waitForTimeout(2000);
       await expect(page.locator('#lpBody table')).toBeVisible();
+      await page.waitForTimeout(2000);
+      await expect(page.locator('#lpBody table')).toBeVisible();
     });
   });
 
@@ -221,6 +223,8 @@ test.describe('OCP Panel — Full E2E Suite', () => {
     test('Reseller Center', async () => {
       await openWhmTool('resellerCenter');
       await expect(page.locator('#rcBody')).toBeVisible();
+      await page.waitForTimeout(2000);
+      await expect(page.locator('#rcBody table')).toBeVisible();
       await page.waitForTimeout(2000);
       await expect(page.locator('#rcBody table')).toBeVisible();
     });
@@ -253,6 +257,8 @@ test.describe('OCP Panel — Full E2E Suite', () => {
       await expect(page.locator('#dzmBody')).toBeVisible();
       await page.waitForTimeout(2000);
       await expect(page.locator('#dzmBody table')).toBeVisible();
+      await page.waitForTimeout(2000);
+      await expect(page.locator('#dzmBody table')).toBeVisible();
     });
 
     test('Add a DNS Zone', async () => {
@@ -278,6 +284,8 @@ test.describe('OCP Panel — Full E2E Suite', () => {
       await expect(page.locator('#weBody')).toBeVisible();
       await page.waitForTimeout(2000);
       await expect(page.locator('#weBody table')).toBeVisible();
+      await page.waitForTimeout(2000);
+      await expect(page.locator('#weBody table')).toBeVisible();
     });
 
     test('Create an Email Account', async () => {
@@ -293,12 +301,14 @@ test.describe('OCP Panel — Full E2E Suite', () => {
 
     test('Delete Email Account', async () => {
       await openWhmTool('whmEmailDelete');
-      await expect(page.locator('#wedBody')).toBeVisible();
+      await expect(page.locator('#wdeBody')).toBeVisible();
     });
 
     test('Email Disk Usage', async () => {
       await openWhmTool('whmEmailDisk');
       await expect(page.locator('#wedBody')).toBeVisible();
+      await page.waitForTimeout(2000);
+      await expect(page.locator('#wedBody table')).toBeVisible();
       await page.waitForTimeout(2000);
       await expect(page.locator('#wedBody table')).toBeVisible();
     });
@@ -313,6 +323,8 @@ test.describe('OCP Panel — Full E2E Suite', () => {
     test('FTP Accounts', async () => {
       await openWhmTool('whmFtp');
       await expect(page.locator('#wfBody')).toBeVisible();
+      await page.waitForTimeout(2000);
+      await expect(page.locator('#wfBody table')).toBeVisible();
       await page.waitForTimeout(2000);
       await expect(page.locator('#wfBody table')).toBeVisible();
     });
@@ -336,6 +348,8 @@ test.describe('OCP Panel — Full E2E Suite', () => {
     test('FTP Connections', async () => {
       await openWhmTool('whmFtpConnections');
       await expect(page.locator('#wfcnBody')).toBeVisible();
+      await page.waitForTimeout(2000);
+      await expect(page.locator('#wfcnBody table')).toBeVisible();
       await page.waitForTimeout(2000);
       await expect(page.locator('#wfcnBody table')).toBeVisible();
     });
@@ -363,11 +377,15 @@ test.describe('OCP Panel — Full E2E Suite', () => {
       await expect(page.locator('#fmBody')).toBeVisible();
       await page.waitForTimeout(2000);
       await expect(page.locator('#fmBody table')).toBeVisible();
+      await page.waitForTimeout(2000);
+      await expect(page.locator('#fmBody table')).toBeVisible();
     });
 
     test('Process Manager', async () => {
       await openTool('processes');
       await expect(page.locator('#pmBody')).toBeVisible();
+      await page.waitForTimeout(2000);
+      await expect(page.locator('#pmBody table')).toBeVisible();
       await page.waitForTimeout(2000);
       await expect(page.locator('#pmBody table')).toBeVisible();
     });

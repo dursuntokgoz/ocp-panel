@@ -111,6 +111,7 @@ const cPanelApp = {
         { name: 'Bandwidth', icon: 'bandwidth', action: 'bandwidth' },
         { name: 'Webalizer', icon: 'webalizer', action: 'webalizer' },
         { name: 'Errors', icon: 'errors', action: 'errors' },
+        { name: 'Error Logs', icon: 'errors', action: 'logs' },
         { name: 'Resource Usage', icon: 'resourceUsage', action: 'resourceUsage' },
         { name: 'CPU / Concurrent Connections', icon: 'cpuConcurrent', action: 'cpuConcurrent' },
         { name: 'SQL Error Logs', icon: 'sqlErrors', action: 'sqlErrors' },
@@ -172,12 +173,12 @@ const cPanelApp = {
       id: 'advanced', title: 'Advanced',
       tools: [
         { name: 'Terminal', icon: 'terminal', action: 'terminal' },
-        { name: 'Cron Jobs', icon: 'cronJobs', action: 'cronJobs' },
+        { name: 'Cron Jobs', icon: 'cronJobs', action: 'cron' },
         { name: 'Indexes', icon: 'indexes', action: 'indexes' },
         { name: 'Error Pages', icon: 'errorPages', action: 'errorPages' },
         { name: 'MIME Types', icon: 'mimeTypes', action: 'mimeTypes' },
         { name: 'Apache Handlers', icon: 'apacheHandlers', action: 'apacheHandlers' },
-        { name: 'Process Manager', icon: 'processManager', action: 'processManager' },
+        { name: 'Process Manager', icon: 'processManager', action: 'processes' },
       ]
     },
   ],

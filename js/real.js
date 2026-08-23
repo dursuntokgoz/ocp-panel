@@ -461,15 +461,17 @@ Object.assign(cPanelSubPages, {
       <div class="subpage-container">
         ${this.header('💻 Terminal', 'Gerçek shell — komutlar dursun kullanıcısı olarak çalışır')}
         <div class="x3-form-box" style="padding:0;overflow:hidden">
-          <div id="termBody" style="background:#0d1117;color:#c9d1d9;font-family:ui-monospace,Consolas,monospace;font-size:13px;padding:14px;height:420px;overflow-y:auto;line-height:1.5" onclick="document.getElementById('termCmd').focus()">
+          <div id="termBody" style="background:#0d1117;color:#c9d1d9;font-family:ui-monospace,Consolas,monospace;font-size:13px;padding:14px;height:420px;overflow-y:auto;line-height:1.5" onclick="document.getElementById('termInput').focus()">
             <div style="color:#8b949e;font-size:12px;margin-bottom:8px">
-              OCP Panel Terminal · ${esc(realUser())}@${esc((PanelAPI.user || 'pi5'))} · ctrl+Enter çalıştırır<br>
+              OCP Panel Terminal · ${esc(realUser())}@${esc((PanelAPI.user || 'pi5'))} · Enter çalıştırır<br>
               <span style="color:#e8740c">⚠ sudo gerektiren komutlar çalışmayabilir</span>
             </div>
-          </div>
-          <div style="display:flex;background:#161b22;border-top:1px solid #30363d">
-            <span style="color:#3fb950;padding:10px 0 10px 14px;font-family:monospace;font-size:13px;white-space:nowrap">${esc(realUser())}@pi5:~$</span>
-            <input type="text" id="termCmd" autocomplete="off" spellcheck="false" style="flex:1;background:transparent;border:none;outline:none;color:#c9d1d9;font-family:monospace;font-size:13px;padding:10px;box-sizing:border-box" onkeydown="if(event.key==='Enter')cPanelSubPages.termExec()">
+            <div id="termOutput"></div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+              <span style="color:#3fb950;font-family:monospace;font-size:13px;white-space:nowrap">${esc(realUser())}@pi5:~$</span>
+              <input type="text" id="termInput" autocomplete="off" spellcheck="false" style="flex:1;background:transparent;border:none;outline:none;color:#c9d1d9;font-family:monospace;font-size:13px;padding:8px 0;box-sizing:border-box" onkeydown="if(event.key==='Enter')cPanelSubPages.termExec()">
+              <button id="termBtn" class="btn-x3-primary" style="padding:6px 12px;font-size:12px" onclick="cPanelSubPages.termExec()">▶ Çalıştır</button>
+            </div>
           </div>
         </div>
         <div class="x3-form-box" style="margin-top:10px;padding:10px 14px;font-size:12px;color:#667">
@@ -479,24 +481,26 @@ Object.assign(cPanelSubPages, {
   },
 
   termExec() {
-    const cmd = document.getElementById('termCmd').value.trim();
+    const cmd = document.getElementById('termInput').value.trim();
     const body = document.getElementById('termBody');
-    if (!cmd || !body) return;
-    if (cmd === 'clear') { body.innerHTML = ''; document.getElementById('termCmd').value = ''; return; }
+    const output = document.getElementById('termOutput');
+    const input = document.getElementById('termInput');
+    if (!cmd || !body || !output) return;
+    if (cmd === 'clear') { body.innerHTML = ''; input.value = ''; return; }
     body.appendChild(this.termLine(cmd));
     const res = document.createElement('div');
     res.style.cssText = 'white-space:pre-wrap;word-break:break-all;color:#e6edf3;margin:2px 0 10px 0';
     res.textContent = 'Çalıştırılıyor…';
-    body.appendChild(res);
-    body.scrollTop = body.scrollHeight;
-    document.getElementById('termCmd').value = '';
+    output.appendChild(res);
+    output.scrollTop = output.scrollHeight;
+    input.value = '';
     PanelAPI.terminal(cmd).then(r => {
       res.textContent = r.output || '(çıktı yok)';
       if (!r.ok && r.code != null) res.textContent += '\n[çıkış kodu: ' + r.code + ']';
-      body.scrollTop = body.scrollHeight;
+      output.scrollTop = output.scrollHeight;
     }).catch(e => {
       res.textContent = 'Hata: ' + e.message;
-      body.scrollTop = body.scrollHeight;
+      output.scrollTop = output.scrollHeight;
     });
   },
 
@@ -513,17 +517,19 @@ Object.assign(cPanelSubPages, {
       ${this.renderBreadcrumb('Advanced', 'Cron Jobs')}
       <div class="subpage-container">
         ${this.header('⏰ Cron Jobs', 'Gerçek crontab — ' + esc(realUser()) + ' kullanıcısı')}
-        <div class="x3-form-box">
-          <h3 style="margin-top:0">Crontab Düzenleyici</h3>
-          <p style="font-size:13px;color:#667;margin-top:0">Format: <code>dakika saat gün ay haftanıngünü komut</code></p>
-          <textarea id="cronEditor" style="width:100%;height:240px;font-family:ui-monospace,monospace;font-size:13px;padding:12px;border:1px solid #dde3ec;border-radius:8px;box-sizing:border-box" spellcheck="false"></textarea>
-          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-            <button class="btn-x3-primary" onclick="cPanelSubPages.saveCron()">💾 Kaydet</button>
-            <button class="btn-x3-sm" onclick="cPanelSubPages.addCronLine()">+ Örnek ekle</button>
-            <button class="btn-x3-sm" onclick="cPanelSubPages.loadCron()">🔄 Yenile</button>
-            <button class="btn-x3-sm danger" onclick="cPanelSubPages.clearCron()">🗑 Temizle</button>
+        <div id="cronBody">
+          <div class="x3-form-box">
+            <h3 style="margin-top:0">Crontab Düzenleyici</h3>
+            <p style="font-size:13px;color:#667;margin-top:0">Format: <code>dakika saat gün ay haftanıngünü komut</code></p>
+            <textarea id="cronEditor" style="width:100%;height:240px;font-family:ui-monospace,monospace;font-size:13px;padding:12px;border:1px solid #dde3ec;border-radius:8px;box-sizing:border-box" spellcheck="false"></textarea>
+            <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+              <button class="btn-x3-primary" onclick="cPanelSubPages.saveCron()">💾 Kaydet</button>
+              <button class="btn-x3-sm" onclick="cPanelSubPages.addCronLine()">+ Örnek ekle</button>
+              <button class="btn-x3-sm" onclick="cPanelSubPages.loadCron()">🔄 Yenile</button>
+              <button class="btn-x3-sm danger" onclick="cPanelSubPages.clearCron()">🗑 Temizle</button>
+            </div>
+            <div id="cronMsg" style="margin-top:10px;font-size:13px"></div>
           </div>
-          <div id="cronMsg" style="margin-top:10px;font-size:13px"></div>
         </div>
       </div>`;
     setTimeout(() => this.loadCron(), 50);
@@ -584,14 +590,16 @@ Object.assign(cPanelSubPages, {
           <input type="text" id="procFilter" class="x3-input" placeholder="Proses ara… (örn: node, python)" style="flex:1" oninput="cPanelSubPages.loadProcesses()">
           <button class="btn-x3-primary" onclick="cPanelSubPages.loadProcesses()">🔄 Yenile</button>
         </div>
-        <div id="procBody">${loadingBox('Prosesler listeleniyor…')}</div>
+        <div id="pmBody">${loadingBox('Prosesler listeleniyor…')}</div>
       </div>`;
     setTimeout(() => this.loadProcesses(), 50);
     return html;
   },
 
+  processes: function() { return this.processManager(); },
+
   loadProcesses() {
-    const body = document.getElementById('procBody');
+    const body = document.getElementById('pmBody');
     if (!body) return;
     body.innerHTML = loadingBox('Prosesler listeleniyor…');
     PanelAPI.processes().then(d => {
@@ -639,14 +647,16 @@ Object.assign(cPanelSubPages, {
           <input type="text" id="logUnit" class="x3-input" placeholder="Servis (örn: nginx, docker, mariadb) — boş = tüm sistem" style="flex:1;min-width:200px" onkeydown="if(event.key==='Enter')cPanelSubPages.loadErrors()">
           <button class="btn-x3-primary" onclick="cPanelSubPages.loadErrors()">🔍 Getir</button>
         </div>
-        <div id="logBody">${loadingBox('Loglar okunuyor…')}</div>
+        <div id="logsBody">${loadingBox('Loglar okunuyor…')}</div>
       </div>`;
     setTimeout(() => this.loadErrors(), 50);
     return html;
   },
 
+  logs: function() { return this.errors(); },
+
   loadErrors() {
-    const body = document.getElementById('logBody');
+    const body = document.getElementById('logsBody');
     if (!body) return;
     const unit = (document.getElementById('logUnit') || {}).value || '';
     body.innerHTML = loadingBox('Loglar okunuyor…');
@@ -720,10 +730,10 @@ Object.assign(cPanelSubPages, {
       ${this.renderBreadcrumb('Databases', 'MySQL Databases')}
       <div class="subpage-container">
         ${this.header('🗄️ MySQL Databases', 'MariaDB durumu ve veritabanları')}
-        <div id="myBody">${loadingBox('MySQL durumu kontrol ediliyor…')}</div>
+        <div id="mysqlBody">${loadingBox('MySQL durumu kontrol ediliyor…')}</div>
       </div>`;
     PanelAPI.mysql().then(d => {
-      const el = document.getElementById('myBody');
+      const el = document.getElementById('mysqlBody');
       if (!el) return;
       if (!d.active) {
         el.innerHTML = errBox('MariaDB servisi kapalı. Services modülünden başlatabilirsiniz.');
@@ -747,7 +757,7 @@ Object.assign(cPanelSubPages, {
           💡 Yeni veritabanı: <code>mysql -u root -e "CREATE DATABASE yeni_db;"</code>
         </div>`;
     }).catch(e => {
-      const el = document.getElementById('myBody');
+      const el = document.getElementById('mysqlBody');
       if (el) el.innerHTML = errBox(e.message);
     });
     return html;
@@ -807,10 +817,10 @@ Object.assign(cPanelSubPages, {
       ${this.renderBreadcrumb('Logs', 'CPU / Concurrent Connections')}
       <div class="subpage-container">
         ${this.header('🔄 CPU / Concurrent Connections', 'Gerçek yük ve bağlantı durumu')}
-        <div id="cpuBody">${loadingBox('Ölçüm alınıyor…')}</div>
+        <div id="ccBody">${loadingBox('Ölçüm alınıyor…')}</div>
       </div>`;
     Promise.all([PanelAPI.stats(), PanelAPI.network()]).then(([s, n]) => {
-      const el = document.getElementById('cpuBody');
+      const el = document.getElementById('ccBody');
       if (!el) return;
       const listening = n.conns.filter(c => c.state === 'LISTEN').length;
       const established = n.conns.filter(c => c.state === 'ESTAB').length;
@@ -849,7 +859,7 @@ Object.assign(cPanelSubPages, {
           <div style="margin-top:12px"><button class="btn-x3-primary" onclick="cPanelSubPages.cpuConcurrent()">🔄 Yenile</button></div>
         </div>`;
     }).catch(e => {
-      const el = document.getElementById('cpuBody');
+      const el = document.getElementById('ccBody');
       if (el) el.innerHTML = errBox(e.message);
     });
     return html;
@@ -1385,14 +1395,99 @@ Object.assign(cPanelSubPages, {
    * PACKAGES
    * ====================================================== */
 
-  /* ---------- Add a Package ---------- */
+/* ---------- Add a Package ---------- */
   addPackage() {
-    return this.packageForm('add');
+    const html = `
+      ${this.renderBreadcrumb('WHM', 'Packages \u00BB Add a Package')}
+      <div class="subpage-container">
+        ${this.header('\u2795 Add a Package', 'Yeni hosting paketi olu\u015Fturun')}
+        <div id="apBody">
+          <form class="x3-form-box" onsubmit="event.preventDefault(); cPanelSubPages.createPackage();">
+            <h3 style="margin-top:0">Yeni Paket Olu\u015Ftur</h3>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
+              <div><label style="font-size:12px;color:#667">Paket Ad\u0131 *</label><input type="text" id="pkgName" class="x3-input" placeholder="\u00F6rn: Basic"></div>
+              <div><label style="font-size:12px;color:#667">Disk (GB)</label><input type="number" id="pkgDisk" class="x3-input" value="5" min="0"></div>
+              <div><label style="font-size:12px;color:#667">Domain Say\u0131s\u0131</label><input type="number" id="pkgDomains" class="x3-input" value="3" min="0"></div>
+              <div><label style="font-size:12px;color:#667">E-posta Say\u0131s\u0131</label><input type="number" id="pkgEmails" class="x3-input" value="5" min="0"></div>
+              <div><label style="font-size:12px;color:#667">Bant Geni\u015Fli\u011Fi (GB)</label><input type="number" id="pkgBW" class="x3-input" value="10" min="0"></div>
+              <div><label style="font-size:12px;color:#667">Fiyat (\u20BA)</label><input type="number" id="pkgPrice" class="x3-input" value="0" min="0"></div>
+            </div>
+            <div style="margin-top:10px"><button type="submit" class="btn-x3-primary">\uD83D\uDCCE Paket Olu\u015Ftur</button></div>
+            <div id="pkgMsg" style="margin-top:8px;font-size:13px"></div>
+          </form>
+        </div>
+      </div>`;
+    return html;
   },
 
   /* ---------- Edit a Package ---------- */
   editPackage() {
-    return this.packageForm('edit');
+    const html = `
+      ${this.renderBreadcrumb('WHM', 'Packages » Edit a Package')}
+      <div class="subpage-container">
+        ${this.header('✏️ Edit a Package', 'Mevcut paketi düzenleyin')}
+        <div id="epBody">
+          <div class="x3-form-box" style="margin-bottom:12px">
+            <label style="font-size:12px;color:#667">Paket Seç</label>
+            <select id="epSel" class="x3-input" onchange="cPanelSubPages.loadEditPackage()" style="margin-top:4px"></select>
+          </div>
+          <div class="x3-form-box">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">
+              <div><label style="font-size:12px;color:#667">Paket Adı *</label><input type="text" id="epName" class="x3-input" placeholder="örn: Basic" readonly style="background:#f0f2f5"></div>
+              <div><label style="font-size:12px;color:#667">Disk (GB)</label><input type="number" id="epDisk" class="x3-input" value="5" min="0"></div>
+              <div><label style="font-size:12px;color:#667">Domain Sayısı</label><input type="number" id="epDomains" class="x3-input" value="3" min="0"></div>
+              <div><label style="font-size:12px;color:#667">E-posta Sayısı</label><input type="number" id="epEmails" class="x3-input" value="5" min="0"></div>
+              <div><label style="font-size:12px;color:#667">Subdomain Sayısı</label><input type="number" id="epSub" class="x3-input" value="5" min="0"></div>
+              <div><label style="font-size:12px;color:#667">Bant Genişliği (GB)</label><input type="number" id="epBW" class="x3-input" value="10" min="0"></div>
+              <div><label style="font-size:12px;color:#667">Fiyat (₺)</label><input type="number" id="epPrice" class="x3-input" value="0" min="0"></div>
+            </div>
+            <div style="margin-top:14px"><button class="btn-x3-primary" onclick="cPanelSubPages.updatePackage()">💾 Güncelle</button></div>
+            <div id="epMsg" style="margin-top:8px;font-size:13px"></div>
+          </div>
+        </div>
+      </div>`;
+    setTimeout(() => {
+      PanelAPI.getPackages().then(d => {
+        const sel = document.getElementById('epSel');
+        if (sel) sel.innerHTML = d.packages.map(p => `<option value="${esc(p.name)}">${esc(p.name)}</option>`).join('');
+        if (d.packages.length) this.loadEditPackage();
+      }).catch(() => {});
+    }, 50);
+    return html;
+  },
+
+  loadEditPackage() {
+    const sel = document.getElementById('epSel');
+    if (!sel || !sel.value) return;
+    PanelAPI.getPackages().then(d => {
+      const p = d.packages.find(x => x.name === sel.value);
+      if (!p) return;
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+      set('epName', p.name); set('epDisk', p.diskGB); set('epDomains', p.domains);
+      set('epEmails', p.emails); set('epSub', p.subdomains); set('epBW', p.bandwidthGB); set('epPrice', p.price);
+    }).catch(() => {});
+  },
+
+  updatePackage() {
+    const msg = document.getElementById('epMsg');
+    const data = {
+      name: document.getElementById('epName').value.trim(),
+      diskGB: +document.getElementById('epDisk').value || 0,
+      domains: +document.getElementById('epDomains').value || 0,
+      emails: +document.getElementById('epEmails').value || 0,
+      subdomains: +document.getElementById('epSub').value || 0,
+      bandwidthGB: +document.getElementById('epBW').value || 0,
+      price: +document.getElementById('epPrice').value || 0
+    };
+    if (!data.name) { if (msg) msg.innerHTML = '<span style="color:#c0392b">Paket adı gerekli</span>'; return; }
+    PanelAPI.updatePackage(data.name, { diskGB: data.diskGB, domains: data.domains, emails: data.emails, subdomains: data.subdomains, bandwidthGB: data.bandwidthGB, price: data.price }).then(() => {
+      if (msg) msg.innerHTML = `<span style="color:#27ae60">✅ Paket güncellendi: ${esc(data.name)}</span>`;
+      this.toast('💾 Paket güncellendi');
+      this.loadEditPackage();
+    }).catch(e => {
+      if (msg) msg.innerHTML = `<span style="color:#c0392b">❌ ${esc(e.message)}</span>`;
+      this.toast('❌ ' + e.message);
+    });
   },
 
   /* ---------- Delete a Package ---------- */
@@ -1556,13 +1651,18 @@ Object.assign(cPanelSubPages, {
    * RESELLERS
    * ====================================================== */
 
-  /* ---------- Reseller Center ---------- */
+/* ---------- Reseller Center ---------- */
   resellerCenter() {
     const html = `
-      ${this.renderBreadcrumb('WHM', 'Resellers » Reseller Center')}
+      ${this.renderBreadcrumb('WHM', 'Resellers \u00BB Reseller Center')}
       <div class="subpage-container">
-        ${this.header('🏪 Reseller Center', 'Reseller hesapları, paketleri ve istatistikleri')}
-        <div id="rcBody">${loadingBox('Reseller\'lar yükleniyor…')}</div>
+        ${this.header('\uD83C\uDFEA Reseller Center', 'Reseller hesaplar\u0131, paketleri ve istatistikleri')}
+        <div id="rcBody">
+          <table class="x3-data-table">
+            <thead><tr style="text-align:left;border-bottom:2px solid #e5e9f0;color:#556"><th style="padding:8px">Y\u00FCkleniyor...</th></tr></thead>
+            <tbody><tr><td style="padding:8px">\u23F3 Reseller\u2019lar y\u00FCkleniyor\u2026</td></tr></tbody>
+          </table>
+        </div>
       </div>`;
     setTimeout(() => {
       PanelAPI.getResellers().then(d => {
@@ -1573,27 +1673,37 @@ Object.assign(cPanelSubPages, {
           <div class="x3-form-box" style="margin:0">
             <div style="display:flex;justify-content:space-between;align-items:center">
               <strong style="font-size:15px">${esc(r.username)}</strong>
-              ${r.exists ? '<span class="badge-active">● Aktif</span>' : '<span class="badge-warn">● Yok</span>'}
+              ${r.exists ? '<span class="badge-active">\u25CF Aktif</span>' : '<span class="badge-warn">\u25CF Yok</span>'}
             </div>
             <div style="margin-top:8px;font-size:12px;color:#667">
               <div>Paket: <span class="badge-active">${esc(r.package)}</span></div>
               <div style="margin-top:4px">Domain: <strong>${r.domainCount}</strong>${r.packageInfo && r.packageInfo.domains ? ' / ' + r.packageInfo.domains : ''}</div>
               <div style="margin-top:4px">Disk: <strong>${r.diskUsedH}</strong>${r.packageInfo ? ' / ' + r.packageInfo.diskGB + ' GB' : ''}</div>
-              <div style="margin-top:4px">E-posta: ${esc(r.email || '—')}</div>
-              <div style="margin-top:4px;font-size:11px;color:#889">Oluşturma: ${esc((r.created || '').slice(0, 10))}</div>
+              <div style="margin-top:4px">E-posta: ${esc(r.email || '\u2014')}</div>
+              <div style="margin-top:4px;font-size:11px;color:#889">Olu\u015Fturma: ${esc((r.created || '').slice(0, 10))}</div>
             </div>
           </div>`).join('');
         el.innerHTML = `
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
-            ${cards || '<div class="x3-form-box" style="text-align:center;color:#889;padding:24px;grid-column:1/-1">Reseller yok — Create a Reseller ile oluşturun</div>'}
+          <div class="x3-form-box" style="padding:0;overflow-x:auto">
+            <table class="x3-data-table" style="width:100%">
+              <thead><tr style="text-align:left;border-bottom:2px solid #e5e9f0;color:#556"><th style="padding:10px 8px">Kullan\u0131c\u0131</th><th style="padding:10px 8px">Paket</th><th style="padding:10px 8px">Domain</th><th style="padding:10px 8px">Disk</th><th style="padding:10px 8px">Durum</th><th style="padding:10px 8px;text-align:right">Aksiyon</th></tr></thead>
+              <tbody>${d.resellers.map(r => `
+                <tr>
+                  <td style="padding:9px 8px"><strong>${esc(r.username)}</strong></td>
+                  <td style="padding:9px 8px"><span class="badge-active">${esc(r.package)}</span></td>
+                  <td style="padding:9px 8px">${r.domainCount} ${r.packageInfo && r.packageInfo.domains ? '/ ' + r.packageInfo.domains : ''}</td>
+                  <td style="padding:9px 8px">${r.diskUsedH}</td>
+                  <td style="padding:9px 8px">${r.exists ? '<span class="badge-active">\u25CF Aktif</span>' : '<span class="badge-warn">\u25CF Sistemde yok</span>'}</td>
+                  <td style="padding:9px 8px;text-align:right">
+                    <button class="btn-x3-sm danger" onclick="cPanelSubPages.deleteReseller('${esc(r.username)}')">\uD83D\uDDD1</button>
+                  </td>
+                </tr>`).join('')}</tbody>
+            </table>
           </div>
           <div class="x3-form-box" style="margin-top:12px;padding:12px 16px;font-size:13px;color:#667">
-            📊 Toplam <strong>${d.resellers.length}</strong> reseller · toplam disk kullanımı <strong>${fmtBytes(totalDisk)}</strong>
+            \uD83D\uDCCA Toplam <strong>${d.resellers.length}</strong> reseller \u00B7 toplam disk kullan\u0131m\u0131 <strong>${fmtBytes(totalDisk)}</strong>
           </div>`;
-      }).catch(e => {
-        const el = document.getElementById('rcBody');
-        if (el) el.innerHTML = errBox(e.message);
-      });
+      }).catch(e => { el.innerHTML = errBox(e.message); });
     }, 50);
     return html;
   },
@@ -1601,18 +1711,20 @@ Object.assign(cPanelSubPages, {
   /* ---------- Create a Reseller ---------- */
   createReseller() {
     const html = `
-      ${this.renderBreadcrumb('WHM', 'Resellers » Create a Reseller')}
+      ${this.renderBreadcrumb('WHM', 'Resellers \u00BB Create a Reseller')}
       <div class="subpage-container">
-        ${this.header('➕ Create a Reseller', 'Yeni reseller hesabı — sistem kullanıcısı olarak oluşturulur')}
-        <div class="x3-form-box">
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
-            <div><label style="font-size:12px;color:#667">Kullanıcı Adı *</label><input type="text" id="crUser" class="x3-input" placeholder="kucuk-harf"></div>
-            <div><label style="font-size:12px;color:#667">Parola *</label><input type="text" id="crPass" class="x3-input" placeholder="en az 6 karakter"></div>
-            <div><label style="font-size:12px;color:#667">Paket *</label><select id="crPkg" class="x3-input"></select></div>
-            <div><label style="font-size:12px;color:#667">E-posta</label><input type="email" id="crEmail" class="x3-input" placeholder="opsiyonel"></div>
-          </div>
-          <div style="margin-top:14px"><button class="btn-x3-primary" onclick="cPanelSubPages.createResellerSubmit()">➕ Reseller Oluştur</button></div>
-          <div id="crMsg" style="margin-top:10px;font-size:13px"></div>
+        ${this.header('\u2795 Create a Reseller', 'Yeni reseller hesab\u0131 \u2014 sistem kullan\u0131c\u0131s\u0131 olarak olu\u015Fturulur')}
+        <div id="crBody">
+          <form class="x3-form-box" onsubmit="event.preventDefault(); cPanelSubPages.createResellerSubmit();">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+              <div><label style="font-size:12px;color:#667">Kullan\u0131c\u0131 Ad\u0131 *</label><input type="text" id="crUser" class="x3-input" placeholder="kucuk-harf"></div>
+              <div><label style="font-size:12px;color:#667">Parola *</label><input type="text" id="crPass" class="x3-input" placeholder="en az 6 karakter"></div>
+              <div><label style="font-size:12px;color:#667">Paket *</label><select id="crPkg" class="x3-input"></select></div>
+              <div><label style="font-size:12px;color:#667">E-posta</label><input type="email" id="crEmail" class="x3-input" placeholder="opsiyonel"></div>
+            </div>
+            <div style="margin-top:14px"><button type="submit" class="btn-x3-primary">\u2795 Reseller Olu\u015Ftur</button></div>
+            <div id="crMsg" style="margin-top:10px;font-size:13px"></div>
+          </form>
         </div>
       </div>`;
     setTimeout(() => {
@@ -1647,23 +1759,93 @@ Object.assign(cPanelSubPages, {
 
   /* ---------- Reseller Modification ---------- */
   resellerModification() {
-    return this.modifyAccount(); // WHM'de aynı akış — hesap düzenleme
+    const html = `
+      ${this.renderBreadcrumb('WHM', 'Resellers » Reseller Modification')}
+      <div class="subpage-container">
+        ${this.header('✏️ Reseller Modification', 'Reseller hesabı düzenleme — paket, parola, e-posta değişikliği')}
+        <div id="rmBody">
+          <div class="x3-form-box" style="margin-bottom:12px">
+            <label style="font-size:12px;color:#667">Reseller Seç</label>
+            <select id="rmSel" class="x3-input" onchange="cPanelSubPages.loadResellerModificationForm()" style="margin-top:4px"></select>
+          </div>
+          <div id="rmForm"></div>
+        </div>
+      </div>`;
+    setTimeout(() => {
+      PanelAPI.getResellers().then(d => {
+        const sel = document.getElementById('rmSel');
+        if (!sel) return;
+        sel.innerHTML = d.resellers.map(r => `<option value="${esc(r.username)}">${esc(r.username)} (${esc(r.package)})</option>`).join('');
+        if (d.resellers.length) this.loadResellerModificationForm();
+      }).catch(() => {});
+    }, 50);
+    return html;
+  },
+
+  loadResellerModificationForm() {
+    const sel = document.getElementById('rmSel');
+    const body = document.getElementById('rmForm');
+    if (!sel || !body) return;
+    const uname = sel.value;
+    if (!uname) { body.innerHTML = ''; return; }
+    PanelAPI.getResellers().then(d => {
+      const r = d.resellers.find(x => x.username === uname);
+      if (!r) return;
+      PanelAPI.getPackages().then(pd => {
+        body.innerHTML = `
+          <div class="x3-form-box">
+            <h3 style="margin-top:0">Reseller: <code>${esc(r.username)}</code></h3>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+              <div><label style="font-size:12px;color:#667">Paket (Upgrade/Downgrade)</label>
+                <select id="rmPkg" class="x3-input">${pd.packages.map(p => `<option value="${esc(p.name)}" ${p.name === r.package ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></div>
+              <div><label style="font-size:12px;color:#667">Yeni Parola (boş = değişmez)</label><input type="text" id="rmPass" class="x3-input" placeholder="boş bırakın"></div>
+              <div><label style="font-size:12px;color:#667">E-posta</label><input type="email" id="rmEmail" class="x3-input" value="${esc(r.email || '')}"></div>
+            </div>
+            <div style="margin-top:14px;display:flex;gap:8px">
+              <button class="btn-x3-primary" onclick="cPanelSubPages.modifyResellerSubmit()">💾 Kaydet</button>
+              <button class="btn-x3-sm danger" onclick="cPanelSubPages.terminateReseller()">🗑 Terminate</button>
+            </div>
+            <div id="rmMsg" style="margin-top:10px;font-size:13px"></div>
+          </div>`;
+      }).catch(() => {});
+    }).catch(() => {});
+  },
+
+  modifyResellerSubmit() {
+    const sel = document.getElementById('rmSel');
+    const msg = document.getElementById('rmMsg');
+    const data = {};
+    const pkg = document.getElementById('rmPkg');
+    if (pkg) data.package = pkg.value;
+    const em = document.getElementById('rmEmail');
+    if (em) data.email = em.value.trim();
+    const pw = document.getElementById('rmPass');
+    if (pw && pw.value) data.password = pw.value;
+    PanelAPI.updateReseller(sel.value, data).then(() => {
+      if (msg) msg.innerHTML = '<span style="color:#27ae60">✅ Reseller güncellendi</span>';
+      this.toast('✅ Reseller güncellendi: ' + sel.value);
+      this.loadResellerModificationForm();
+    }).catch(e => {
+      if (msg) msg.innerHTML = `<span style="color:#c0392b">❌ ${esc(e.message)}</span>`;
+    });
   },
 
   /* ---------- Terminate a Reseller ---------- */
   terminateReseller() {
     const html = `
-      ${this.renderBreadcrumb('WHM', 'Resellers » Terminate a Reseller')}
+      ${this.renderBreadcrumb('WHM', 'Resellers \u00BB Terminate a Reseller')}
       <div class="subpage-container">
-        ${this.header('🗑 Terminate a Reseller', 'Reseller hesabını sonlandır — tüm veriler silinir')}
-        <div class="x3-form-box" style="margin-bottom:12px">
-          <label style="font-size:12px;color:#667">Reseller Seç</label>
-          <select id="trSel" class="x3-input" style="margin-top:4px"></select>
-        </div>
-        <div class="x3-form-box" style="border-color:#e74c3c">
-          <p style="margin:0 0 10px;font-size:13px;color:#c0392b"><strong>⚠️ Dikkat:</strong> Bu işlem sistem kullanıcısını, ev dizinini ve tüm domain'lerini kalıcı olarak siler.</p>
-          <button class="btn-x3-sm danger" onclick="cPanelSubPages.terminateResellerSubmit()">🗑 Reseller\'ı Sonlandır</button>
-          <div id="trMsg" style="margin-top:8px;font-size:13px"></div>
+        ${this.header('\uD83D\uDDD1 Terminate a Reseller', 'Reseller hesab\u0131n\u0131 sonland\u0131r \u2014 t\u00FCm veriler silinir')}
+        <div id="trBody">
+          <div class="x3-form-box" style="margin-bottom:12px">
+            <label style="font-size:12px;color:#667">Reseller Se\u00E7</label>
+            <select id="trSel" class="x3-input" style="margin-top:4px"></select>
+          </div>
+          <div class="x3-form-box" style="border-color:#e74c3c">
+            <p style="margin:0 0 10px;font-size:13px;color:#c0392b"><strong>\u26A0\uFE0F Dikkat:</strong> Bu i\u015Flem sistem kullan\u0131c\u0131s\u0131n\u0131, ev dizinini ve t\u00FCm domain'lerini kal\u0131c\u0131 olarak siler.</p>
+            <button class="btn-x3-sm danger" onclick="cPanelSubPages.terminateResellerSubmit()">\uD83D\uDDD1 Reseller\u0131 Sonland\u0131r</button>
+            <div id="trMsg" style="margin-top:8px;font-size:13px"></div>
+          </div>
         </div>
       </div>`;
     setTimeout(() => {
@@ -1694,43 +1876,44 @@ Object.assign(cPanelSubPages, {
    * DNS FUNCTIONS
    * ====================================================== */
 
-  /* ---------- DNS Zone Manager ---------- */
+/* ---------- DNS Zone Manager ---------- */
   dnsZoneManager() {
     const html = `
-      ${this.renderBreadcrumb('WHM', 'DNS Functions » DNS Zone Manager')}
+      ${this.renderBreadcrumb('WHM', 'DNS Functions \u00BB DNS Zone Manager')}
       <div class="subpage-container">
-        ${this.header('🌐 DNS Zone Manager', 'Tüm domain\'lerin DNS kayıtları (A, CNAME, MX, NS, TXT)')}
-        <div id="dzBody">${loadingBox('Zone\'lar yükleniyor…')}</div>
+        ${this.header('\uD83C\uDF10 DNS Zone Manager', 'T\u00FCm domain\u2019lerin DNS kay\u0131tlar\u0131 (A, CNAME, MX, NS, TXT)')}
+        <div id="dzmBody">${loadingBox('Zone\u2019lar y\u00FCkleniyor\u2026')}</div>
       </div>`;
     setTimeout(() => {
       PanelAPI.getDnsZones().then(d => {
-        const el = document.getElementById('dzBody');
+        const el = document.getElementById('dzmBody');
         if (!el) return;
+        let rows = '';
+        d.zones.forEach(z => {
+          z.records.forEach(r => {
+            rows += `
+                <tr>
+                  <td style="padding:6px 10px;font-weight:600">${esc(z.domain)}</td>
+                  <td style="padding:6px 10px"><span class="badge-active" style="font-size:10px">${esc(r.type)}</span></td>
+                  <td style="padding:6px 10px;font-family:monospace">${esc(r.name)}</td>
+                  <td style="padding:6px 10px;color:#889">${r.ttl}</td>
+                  <td style="padding:6px 10px;font-family:monospace">${esc(r.value)}</td>
+                  <td style="padding:6px 10px;text-align:right">${r.type === 'A' ? `<button class="btn-x3-sm" onclick="cPanelSubPages.editDnsZone('${esc(z.domain)}')">\u270F\uFE0F</button>` : ''}</td>
+                </tr>`;
+          });
+        });
         el.innerHTML = `
           <div class="x3-form-box" style="padding:10px 16px;margin-bottom:10px;font-size:13px;color:#667">
-            Nameserver: <code>${esc(d.nameserver)}</code> · Sunucu IP: <code>${esc(d.ip)}</code> · ${d.zones.length} zone
+            Nameserver: <code>${esc(d.nameserver)}</code> \u00B7 Sunucu IP: <code>${esc(d.ip)}</code> \u00B7 ${d.zones.length} zone
           </div>
-          ${d.zones.map(z => `
-            <div class="x3-form-box" style="margin-bottom:12px;padding:0;overflow:hidden">
-              <div style="padding:10px 14px;background:#f8fafc;border-bottom:1px solid #e5e9f0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-                <strong>${esc(z.domain)}</strong>
-                <span style="font-size:11px;color:#889">Serial: ${z.serial}</span>
-              </div>
-              <table style="width:100%;border-collapse:collapse;font-size:12px">
-                <thead><tr style="text-align:left;color:#556;border-bottom:1px solid #eef1f5"><th style="padding:6px 10px">Tip</th><th style="padding:6px 10px">Ad</th><th style="padding:6px 10px">TTL</th><th style="padding:6px 10px">Değer</th><th style="padding:6px 10px;text-align:right">Aksiyon</th></tr></thead>
-                <tbody>${z.records.map(r => `
-                  <tr>
-                    <td style="padding:6px 10px"><span class="badge-active" style="font-size:10px">${esc(r.type)}</span></td>
-                    <td style="padding:6px 10px;font-family:monospace">${esc(r.name)}</td>
-                    <td style="padding:6px 10px;color:#889">${r.ttl}</td>
-                    <td style="padding:6px 10px;font-family:monospace">${esc(r.value)}</td>
-                    <td style="padding:6px 10px;text-align:right">${r.type === 'A' ? `<button class="btn-x3-sm" onclick="cPanelSubPages.editDnsZone('${esc(z.domain)}')">✏️</button>` : ''}</td>
-                  </tr>`).join('')}
-                </tbody>
-              </table>
-            </div>`).join('') || '<div class="x3-form-box" style="text-align:center;color:#889;padding:24px">Zone yok — Add a DNS Zone ile ekleyin</div>'}`;
+          <div class="x3-form-box" style="padding:0;overflow-x:auto">
+            <table class="x3-data-table" style="width:100%">
+              <thead><tr style="text-align:left;color:#556;border-bottom:2px solid #e5e9f0"><th style="padding:8px">Zone</th><th style="padding:8px">Tip</th><th style="padding:8px">Ad</th><th style="padding:8px">TTL</th><th style="padding:8px">De\u011Fer</th><th style="padding:8px;text-align:right">Aksiyon</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>`;
       }).catch(e => {
-        const el = document.getElementById('dzBody');
+        const el = document.getElementById('dzmBody');
         if (el) el.innerHTML = errBox(e.message);
       });
     }, 50);
@@ -1740,23 +1923,25 @@ Object.assign(cPanelSubPages, {
   /* ---------- Add a DNS Zone ---------- */
   addDnsZone() {
     const html = `
-      ${this.renderBreadcrumb('WHM', 'DNS Functions » Add a DNS Zone')}
+      ${this.renderBreadcrumb('WHM', 'DNS Functions \u00BB Add a DNS Zone')}
       <div class="subpage-container">
-        ${this.header('➕ Add a DNS Zone', 'Yeni domain için DNS zone + nginx vhost oluşturun')}
-        <div class="x3-form-box">
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
-            <div><label style="font-size:12px;color:#667">Domain *</label><input type="text" id="azDomain" class="x3-input" placeholder="ornek.com"></div>
-            <div><label style="font-size:12px;color:#667">Reseller (opsiyonel)</label><select id="azReseller" class="x3-input"><option value="">— yok —</option></select></div>
-            <div><label style="font-size:12px;color:#667">Kök Dizin</label><input type="text" id="azRoot" class="x3-input" placeholder="otomatik"></div>
-          </div>
-          <div style="margin-top:14px"><button class="btn-x3-primary" onclick="cPanelSubPages.addDnsZoneSubmit()">➕ Zone Oluştur</button></div>
-          <div id="azMsg" style="margin-top:10px;font-size:13px"></div>
+        ${this.header('\u2795 Add a DNS Zone', 'Yeni domain i\u00E7in DNS zone + nginx vhost olu\u015Fturun')}
+        <div id="adzBody">
+          <form class="x3-form-box" onsubmit="event.preventDefault(); cPanelSubPages.addDnsZoneSubmit();">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+              <div><label style="font-size:12px;color:#667">Domain *</label><input type="text" id="azDomain" class="x3-input" placeholder="ornek.com"></div>
+              <div><label style="font-size:12px;color:#667">Reseller (opsiyonel)</label><select id="azReseller" class="x3-input"><option value="">\u2014 yok \u2014</option></select></div>
+              <div><label style="font-size:12px;color:#667">K\u00F6k Dizin</label><input type="text" id="azRoot" class="x3-input" placeholder="otomatik"></div>
+            </div>
+            <div style="margin-top:14px"><button type="submit" class="btn-x3-primary">\u2795 Zone Olu\u015Ftur</button></div>
+            <div id="azMsg" style="margin-top:10px;font-size:13px"></div>
+          </form>
         </div>
       </div>`;
     setTimeout(() => {
       PanelAPI.getResellers().then(d => {
         const sel = document.getElementById('azReseller');
-        if (sel) sel.innerHTML = '<option value="">— yok —</option>' + d.resellers.map(r => `<option value="${esc(r.username)}">${esc(r.username)}</option>`).join('');
+        if (sel) sel.innerHTML = '<option value="">\u2014 yok \u2014</option>' + d.resellers.map(r => `<option value="${esc(r.username)}">${esc(r.username)}</option>`).join('');
       }).catch(() => {});
     }, 50);
     return html;
@@ -1785,14 +1970,18 @@ Object.assign(cPanelSubPages, {
     if (!domain) {
       // modül olarak açıldığında: zone seçtir
       const html = `
-        ${this.renderBreadcrumb('WHM', 'DNS Functions » Edit DNS Zone')}
+        ${this.renderBreadcrumb('WHM', 'DNS Functions \u00BB Edit DNS Zone')}
         <div class="subpage-container">
-          ${this.header('✏️ Edit DNS Zone', 'A kaydı IP adresini değiştirin (gerçek /etc/hosts güncellemesi)')}
+          ${this.header('\u270F\uFE0F Edit DNS Zone', 'A kayd\u0131 IP adresini de\u011Fi\u015Ftirin (ger\u00E7ek /etc/hosts g\u00FCncellemesi)')}
           <div class="x3-form-box" style="margin-bottom:12px">
-            <label style="font-size:12px;color:#667">Zone Seç</label>
+            <label style="font-size:12px;color:#667">Zone Se\u00E7</label>
             <select id="ezSel" class="x3-input" onchange="cPanelSubPages.editDnsZone(this.value)" style="margin-top:4px"></select>
           </div>
-          <div id="ezBody"></div>
+          <div id="edzBody">
+            <div class="x3-form-box" style="text-align:center;color:#889;padding:24px">
+              Zone se\u00E7iniz \u2014 listeden bir domain belirleyin
+            </div>
+          </div>
         </div>`;
       setTimeout(() => {
         PanelAPI.getDnsZones().then(d => {
@@ -1803,7 +1992,7 @@ Object.assign(cPanelSubPages, {
       return html;
     }
     // seçili zone için form
-    const body = document.getElementById('ezBody');
+    const body = document.getElementById('edzBody');
     const sel = document.getElementById('ezSel');
     if (sel) sel.value = domain;
     if (!body) {
@@ -1822,25 +2011,25 @@ Object.assign(cPanelSubPages, {
   },
 
   loadEditZone(domain) {
-    const body = document.getElementById('ezBody');
+    const body = document.getElementById('edzBody');
     if (!body || !domain) return;
-    body.innerHTML = loadingBox('Zone okunuyor…');
+    body.innerHTML = loadingBox('Zone okunuyor\u2026');
     PanelAPI.getDnsZones().then(d => {
       const z = d.zones.find(x => x.domain === domain);
-      if (!z) { body.innerHTML = errBox('Zone bulunamadı'); return; }
+      if (!z) { body.innerHTML = errBox('Zone bulunamad\u0131'); return; }
       const aRec = z.records.find(r => r.type === 'A');
       body.innerHTML = `
         <div class="x3-form-box">
           <h3 style="margin-top:0">Zone: <code>${esc(z.domain)}</code></h3>
           <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
-            <div><label style="font-size:12px;color:#667">A Kaydı (IP Adresi)</label>
+            <div><label style="font-size:12px;color:#667">A Kayd\u0131 (IP Adresi)</label>
               <input type="text" id="ezIp" class="x3-input" value="${esc(aRec ? aRec.value : d.ip)}" style="width:180px;font-family:monospace"></div>
-            <button class="btn-x3-primary" onclick="cPanelSubPages.editDnsZoneSubmit('${esc(z.domain)}')">💾 Kaydet</button>
+            <button class="btn-x3-primary" onclick="cPanelSubPages.editDnsZoneSubmit('${esc(z.domain)}')">\uD83D\uDCCE Kaydet</button>
           </div>
           <div id="ezMsg" style="margin-top:10px;font-size:13px"></div>
           <div style="margin-top:14px;border-top:1px solid #eef1f5;padding-top:10px">
             <table style="width:100%;border-collapse:collapse;font-size:12px">
-              <thead><tr style="text-align:left;color:#556"><th style="padding:5px 8px">Tip</th><th style="padding:5px 8px">Ad</th><th style="padding:5px 8px">TTL</th><th style="padding:5px 8px">Değer</th></tr></thead>
+              <thead><tr style="text-align:left;color:#556"><th style="padding:5px 8px">Tip</th><th style="padding:5px 8px">Ad</th><th style="padding:5px 8px">TTL</th><th style="padding:5px 8px">De\u011Fer</th></tr></thead>
               <tbody>${z.records.map(r => `<tr><td style="padding:5px 8px"><span class="badge-active" style="font-size:10px">${esc(r.type)}</span></td><td style="padding:5px 8px;font-family:monospace">${esc(r.name)}</td><td style="padding:5px 8px;color:#889">${r.ttl}</td><td style="padding:5px 8px;font-family:monospace">${esc(r.value)}</td></tr>`).join('')}</tbody>
             </table>
           </div>
@@ -1940,30 +2129,32 @@ Object.assign(cPanelSubPages, {
   /* ---------- Create an Email Account ---------- */
   whmEmailCreate() {
     const html = `
-      ${this.renderBreadcrumb('WHM', 'Email Functions » Create an Email Account')}
+      ${this.renderBreadcrumb('WHM', 'Email Functions \u00BB Create an Email Account')}
       <div class="subpage-container">
-        ${this.header('➕ Create an Email Account', 'Gerçek postfix/dovecot hesabı — maildir + SMTP/IMAP erişimi')}
-        <div class="x3-form-box">
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
-            <div>
-              <label style="font-size:12px;color:#667">E-posta Adresi *</label>
-              <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
-                <input type="text" id="ceUser" class="x3-input" placeholder="info" style="flex:1">
-                <span style="color:#889">@</span>
-                <select id="ceDomain" class="x3-input" style="flex:1.4"></select>
+        ${this.header('\u2795 Create an Email Account', 'Ger\u00E7ek postfix/dovecot hesab\u0131 \u2014 maildir + SMTP/IMAP eri\u015Fimi')}
+        <div id="wecBody">
+          <form class="x3-form-box" onsubmit="event.preventDefault(); cPanelSubPages.whmEmailCreateSubmit();">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+              <div>
+                <label style="font-size:12px;color:#667">E-posta Adresi *</label>
+                <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+                  <input type="text" id="ceUser" class="x3-input" placeholder="info" style="flex:1">
+                  <span style="color:#889">@</span>
+                  <select id="ceDomain" class="x3-input" style="flex:1.4"></select>
+                </div>
               </div>
+              <div><label style="font-size:12px;color:#667">Parola *</label><input type="password" id="cePass" class="x3-input" placeholder="en az 6 karakter"></div>
+              <div><label style="font-size:12px;color:#667">Kota (MB, 0 = s\u0131n\u0131rs\u0131z)</label><input type="number" id="ceQuota" class="x3-input" value="200" min="0"></div>
             </div>
-            <div><label style="font-size:12px;color:#667">Parola *</label><input type="password" id="cePass" class="x3-input" placeholder="en az 6 karakter"></div>
-            <div><label style="font-size:12px;color:#667">Kota (MB, 0 = sınırsız)</label><input type="number" id="ceQuota" class="x3-input" value="200" min="0"></div>
-          </div>
-          <div style="margin-top:14px"><button class="btn-x3-primary" onclick="cPanelSubPages.whmEmailCreateSubmit()">➕ Hesap Oluştur</button></div>
-          <div id="ceMsg" style="margin-top:10px;font-size:13px"></div>
+            <div style="margin-top:14px"><button type="submit" class="btn-x3-primary">\u2795 Hesap Olu\u015Ftur</button></div>
+            <div id="ceMsg" style="margin-top:10px;font-size:13px"></div>
+          </form>
         </div>
       </div>`;
     setTimeout(() => {
       PanelAPI.getDomains().then(d => {
         const sel = document.getElementById('ceDomain');
-        if (sel) sel.innerHTML = d.domains.map(x => `<option value="${esc(x.name)}">${esc(x.name)}</option>`).join('') || '<option value="">— domain yok —</option>';
+        if (sel) sel.innerHTML = d.domains.map(x => `<option value="${esc(x.name)}">${esc(x.name)}</option>`).join('') || '<option value="">\u2014 domain yok \u2014</option>';
       }).catch(() => {});
     }, 50);
     return html;
@@ -1985,28 +2176,32 @@ Object.assign(cPanelSubPages, {
     });
   },
 
-  /* ---------- Modify Email Account ---------- */
+/* ---------- Modify Email Account ---------- */
   whmEmailModify(email) {
     if (!email) {
       const html = `
-        ${this.renderBreadcrumb('WHM', 'Email Functions » Modify Email Account')}
+        ${this.renderBreadcrumb('WHM', 'Email Functions \u00BB Modify Email Account')}
         <div class="subpage-container">
-          ${this.header('✏️ Modify Email Account', 'Parola ve kota değişikliği — dovecot passwd-file güncellemesi')}
+          ${this.header('\u270F\uFE0F Modify Email Account', 'Parola ve kota de\u011Fi\u015F\u0131\u011Fi \u2014 dovecot passwd-file g\u00FCncellemesi')}
           <div class="x3-form-box" style="margin-bottom:12px">
-            <label style="font-size:12px;color:#667">Hesap Seç</label>
+            <label style="font-size:12px;color:#667">Hesap Se\u00E7</label>
             <select id="meSel" class="x3-input" onchange="cPanelSubPages.whmEmailModify(this.value)" style="margin-top:4px"></select>
           </div>
-          <div id="meBody"></div>
+          <div id="wemBody">
+            <div class="x3-form-box" style="text-align:center;color:#889;padding:24px">
+              Hesap se\u00E7iniz \u2014 listeden bir e-posta belirleyin
+            </div>
+          </div>
         </div>`;
       setTimeout(() => {
         PanelAPI.getEmails().then(d => {
           const sel = document.getElementById('meSel');
-          if (sel) sel.innerHTML = d.emails.map(a => `<option value="${esc(a.email)}">${esc(a.email)}</option>`).join('') || '<option value="">— hesap yok —</option>';
+          if (sel) sel.innerHTML = d.emails.map(a => `<option value="${esc(a.email)}">${esc(a.email)}</option>`).join('') || '<option value="">\u2014 hesap yok \u2014</option>';
         }).catch(() => {});
       }, 50);
       return html;
     }
-    const body = document.getElementById('meBody');
+    const body = document.getElementById('wemBody');
     const sel = document.getElementById('meSel');
     if (sel) sel.value = email;
     if (!body) {
@@ -2024,19 +2219,19 @@ Object.assign(cPanelSubPages, {
   },
 
   loadWhmEmailModify(email) {
-    const body = document.getElementById('meBody');
+    const body = document.getElementById('wemBody');
     if (!body || !email) return;
     PanelAPI.getEmails().then(d => {
       const a = d.emails.find(x => x.email === email);
-      if (!a) { body.innerHTML = errBox('Hesap bulunamadı'); return; }
+      if (!a) { body.innerHTML = errBox('Hesap bulunamad\u0131'); return; }
       body.innerHTML = `
         <div class="x3-form-box">
           <h3 style="margin-top:0">Hesap: <code>${esc(a.email)}</code></h3>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
-            <div><label style="font-size:12px;color:#667">Yeni Parola (boş bırakılırsa değişmez)</label><input type="password" id="mePass" class="x3-input" placeholder="en az 6 karakter"></div>
-            <div><label style="font-size:12px;color:#667">Kota (MB, 0 = sınırsız)</label><input type="number" id="meQuota" class="x3-input" value="${a.quotaMB}" min="0"></div>
+            <div><label style="font-size:12px;color:#667">Yeni Parola (bo\u015F b\u0131rak\u0131lsa de\u011Fi\u015Fmez)</label><input type="password" id="mePass" class="x3-input" placeholder="en az 6 karakter"></div>
+            <div><label style="font-size:12px;color:#667">Kota (MB, 0 = s\u0131n\u0131rs\u0131z)</label><input type="number" id="meQuota" class="x3-input" value="${a.quotaMB}" min="0"></div>
           </div>
-          <div style="margin-top:14px"><button class="btn-x3-primary" onclick="cPanelSubPages.whmEmailModifySubmit('${esc(a.email)}')">💾 Kaydet</button></div>
+          <div style="margin-top:14px"><button class="btn-x3-primary" onclick="cPanelSubPages.whmEmailModifySubmit('${esc(a.email)}')">\uD83D\uDCCE Kaydet</button></div>
           <div id="meMsg" style="margin-top:10px;font-size:13px"></div>
         </div>`;
     }).catch(e => { body.innerHTML = errBox(e.message); });
@@ -2056,66 +2251,68 @@ Object.assign(cPanelSubPages, {
     });
   },
 
-  /* ---------- Delete Email Account ---------- */
+/* ---------- Delete Email Account ---------- */
   whmEmailDelete(email) {
     if (!email) {
       const html = `
-        ${this.renderBreadcrumb('WHM', 'Email Functions » Delete Email Account')}
+        ${this.renderBreadcrumb('WHM', 'Email Functions \u00BB Delete Email Account')}
         <div class="subpage-container">
-          ${this.header('🗑 Delete Email Account', 'Hesap + maildir tamamen silinir (geri alınamaz)')}
+          ${this.header('\uD83D\uDDD1 Delete Email Account', 'Hesap + maildir tamamen silinir (geri al\u0131namaz)')}
           <div class="x3-form-box" style="margin-bottom:12px">
-            <label style="font-size:12px;color:#667">Hesap Seç</label>
+            <label style="font-size:12px;color:#667">Hesap Se\u00E7</label>
             <select id="deSel" class="x3-input" style="margin-top:4px"></select>
           </div>
-          <button class="btn-x3-primary danger" onclick="cPanelSubPages.whmEmailDeleteSubmit()">🗑 Hesabı Sil</button>
-          <div id="deMsg" style="margin-top:10px;font-size:13px"></div>
+          <div id="wdeBody">
+            <button class="btn-x3-primary danger" onclick="cPanelSubPages.whmEmailDeleteSubmit()">\uD83D\uDDD1 Hesab\u0131 Sil</button>
+            <div id="deMsg" style="margin-top:10px;font-size:13px"></div>
+          </div>
         </div>`;
       setTimeout(() => {
         PanelAPI.getEmails().then(d => {
           const sel = document.getElementById('deSel');
-          if (sel) sel.innerHTML = d.emails.map(a => `<option value="${esc(a.email)}">${esc(a.email)}</option>`).join('') || '<option value="">— hesap yok —</option>';
+          if (sel) sel.innerHTML = d.emails.map(a => `<option value="${esc(a.email)}">${esc(a.email)}</option>`).join('') || '<option value="">\u2014 hesap yok \u2014</option>';
         }).catch(() => {});
       }, 50);
       return html;
     }
-    if (!confirm(`"${email}" hesabı ve tüm mailleri silinsin mi?`)) return;
+    if (!confirm(`\"${email}\" hesab\u0131 ve t\u00FCm mailleri silinsin mi?`)) return;
     PanelAPI.deleteEmail(email).then(d => {
-      this.toast('🗑 E-posta hesabı silindi: ' + d.email);
+      this.toast('\uD83D\uDDD1 E-posta hesab\u0131 silindi: ' + d.email);
       const body = document.getElementById('weBody');
       if (body) this.loadWhmEmails();
-    }).catch(e => this.toast('❌ ' + e.message));
+    }).catch(e => this.toast('\u274C ' + e.message));
   },
 
   whmEmailDeleteSubmit() {
     const sel = document.getElementById('deSel');
     const email = sel ? sel.value : '';
-    if (!email) { const msg = document.getElementById('deMsg'); if (msg) msg.innerHTML = '<span style="color:#c0392b">Hesap seçin</span>'; return; }
-    if (!confirm(`"${email}" hesabı ve tüm mailleri silinsin mi? (geri alınamaz)`)) return;
+    if (!email) { const msg = document.getElementById('deMsg'); if (msg) msg.innerHTML = '<span style="color:#c0392b">Hesap se\u00E7in</span>'; return; }
+    if (!confirm(`\"${email}\" hesab\u0131 ve t\u00FCm mailleri silinsin mi? (geri al\u0131namaz)`)) return;
     PanelAPI.deleteEmail(email).then(d => {
       const msg = document.getElementById('deMsg');
-      if (msg) msg.innerHTML = `<span style="color:#27ae60">✅ Silindi: <strong>${esc(d.email)}</strong></span>`;
-      this.toast('🗑 E-posta hesabı silindi: ' + d.email);
+      if (msg) msg.innerHTML = `<span style="color:#27ae60">\u2705 Silindi: <strong>${esc(d.email)}</strong></span>`;
+      this.toast('\uD83D\uDDD1 E-posta hesab\u0131 silindi: ' + d.email);
       PanelAPI.getEmails().then(r => {
         const s2 = document.getElementById('deSel');
-        if (s2) s2.innerHTML = r.emails.map(a => `<option value="${esc(a.email)}">${esc(a.email)}</option>`).join('') || '<option value="">— hesap yok —</option>';
+        if (s2) s2.innerHTML = r.emails.map(a => `<option value="${esc(a.email)}">${esc(a.email)}</option>`).join('') || '<option value="">\u2014 hesap yok \u2014</option>';
       }).catch(() => {});
     }).catch(e => {
       const msg = document.getElementById('deMsg');
-      if (msg) msg.innerHTML = `<span style="color:#c0392b">❌ ${esc(e.message)}</span>`;
+      if (msg) msg.innerHTML = `<span style="color:#c0392b">\u274C ${esc(e.message)}</span>`;
     });
   },
 
-/* ---------- Email Disk Usage ---------- */
+  /* ---------- Email Disk Usage ---------- */
   whmEmailDisk() {
     const html = `
-      ${this.renderBreadcrumb('WHM', 'Email Functions » Email Disk Usage')}
+      ${this.renderBreadcrumb('WHM', 'Email Functions \u00BB Email Disk Usage')}
       <div class="subpage-container">
-        ${this.header('💾 Email Disk Usage', 'E-posta hesapları disk kullanımı ve kota')}
+        ${this.header('\uD83D\uDCBE Email Disk Usage', 'E-posta hesaplar\u0131 disk kullan\u0131m\u0131 ve kota')}
         <div class="x3-form-box" style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
-          <input type="text" id="wedFilter" class="x3-input" placeholder="E-posta ara…" style="flex:1" oninput="cPanelSubPages.loadWhmEmailDisk()">
-          <button class="btn-x3-primary" onclick="cPanelSubPages.loadWhmEmailDisk()">🔄 Yenile</button>
+          <input type="text" id="wedFilter" class="x3-input" placeholder="E-posta ara\u2026" style="flex:1" oninput="cPanelSubPages.loadWhmEmailDisk()">
+          <button class="btn-x3-primary" onclick="cPanelSubPages.loadWhmEmailDisk()">\uD83D\uDD04 Yenile</button>
         </div>
-        <div id="wedBody">${loadingBox('E-posta disk kullanımı yükleniyor…')}</div>
+        <div id="wedBody">${loadingBox('E-posta disk kullan\u0131m\u0131 y\u00FCkleniyor\u2026')}</div>
       </div>`;
     setTimeout(() => this.loadWhmEmailDisk(), 50);
     return html;
@@ -2222,75 +2419,63 @@ Object.assign(cPanelSubPages, {
   /* ---------- Create FTP Account ---------- */
   whmFtpCreate() {
     const html = `
-      ${this.renderBreadcrumb('WHM', 'FTP Functions » Create FTP Account')}
+      ${this.renderBreadcrumb('WHM', 'FTP Functions \u00BB Create FTP Account')}
       <div class="subpage-container">
-        ${this.header('➕ Create FTP Account', 'vsftpd sanal kullanıcısı — domain kök dizinine anında erişim')}
-        <div class="x3-form-box">
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
-            <div>
-              <label style="font-size:12px;color:#667">Kullanıcı Adı *</label>
-              <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
-                <input type="text" id="cfUser" class="x3-input" placeholder="ftp1" style="flex:1">
-                <span style="color:#889">@</span>
-                <select id="cfDomain" class="x3-input" style="flex:1.4"></select>
+        ${this.header('\u2795 Create FTP Account', 'vsftpd sanal kullan\u0131c\u0131s\u0131 \u2014 domain k\u00F6k dizinine an\u0131nda eri\u015Fim')}
+        <div id="wfcBody">
+          <form class="x3-form-box" onsubmit="event.preventDefault(); cPanelSubPages.whmFtpCreateSubmit();">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+              <div>
+                <label style="font-size:12px;color:#667">Kullan\u0131c\u0131 Ad\u0131 *</label>
+                <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+                  <input type="text" id="cfUser" class="x3-input" placeholder="ftp1" style="flex:1">
+                  <span style="color:#889">@</span>
+                  <select id="cfDomain" class="x3-input" style="flex:1.4"></select>
+                </div>
               </div>
+              <div><label style="font-size:12px;color:#667">Parola *</label><input type="password" id="cfPass" class="x3-input" placeholder="en az 6 karakter"></div>
+              <div><label style="font-size:12px;color:#667">Dizin (bo\u015F = domain k\u00F6k\u00FC)</label><input type="text" id="cfRoot" class="x3-input" placeholder="/home/kullanici/public_html"></div>
             </div>
-            <div><label style="font-size:12px;color:#667">Parola *</label><input type="password" id="cfPass" class="x3-input" placeholder="en az 6 karakter"></div>
-            <div><label style="font-size:12px;color:#667">Dizin (boş = domain kökü)</label><input type="text" id="cfRoot" class="x3-input" placeholder="/home/kullanici/public_html"></div>
-          </div>
-          <div style="margin-top:14px"><button class="btn-x3-primary" onclick="cPanelSubPages.whmFtpCreateSubmit()">➕ Hesap Oluştur</button></div>
-          <div id="cfMsg" style="margin-top:10px;font-size:13px"></div>
+            <div style="margin-top:14px"><button type="submit" class="btn-x3-primary">\u2795 Hesap Olu\u015Ftur</button></div>
+            <div id="cfMsg" style="margin-top:10px;font-size:13px"></div>
+          </form>
         </div>
       </div>`;
     setTimeout(() => {
       PanelAPI.getDomains().then(d => {
         const sel = document.getElementById('cfDomain');
-        if (sel) sel.innerHTML = d.domains.map(x => `<option value="${esc(x.name)}">${esc(x.name)}</option>`).join('') || '<option value="">— domain yok —</option>';
+        if (sel) sel.innerHTML = d.domains.map(x => `<option value="${esc(x.name)}">${esc(x.name)}</option>`).join('') || '<option value="">\u2014 domain yok \u2014</option>';
       }).catch(() => {});
     }, 50);
     return html;
   },
 
-  whmFtpCreateSubmit() {
-    const msg = document.getElementById('cfMsg');
-    const user = (document.getElementById('cfUser') || {}).value.trim().toLowerCase();
-    const domain = (document.getElementById('cfDomain') || {}).value;
-    const pass = (document.getElementById('cfPass') || {}).value;
-    const root = (document.getElementById('cfRoot') || {}).value.trim();
-    if (!user || !domain) { if (msg) msg.innerHTML = '<span style="color:#c0392b">Kullanıcı adı ve domain gerekli</span>'; return; }
-    const data = { user: user + '@' + domain, password: pass };
-    if (root) data.root = root;
-    PanelAPI.addFtp(data).then(d => {
-      if (msg) msg.innerHTML = `<span style="color:#27ae60">✅ FTP hesabı oluşturuldu: <strong>${esc(d.user)}</strong> → ${esc(d.root)} (${esc(d.guest)})</span>`;
-      this.toast('✅ FTP hesabı oluşturuldu: ' + d.user);
-      ['cfUser', 'cfPass', 'cfRoot'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-    }).catch(e => {
-      if (msg) msg.innerHTML = `<span style="color:#c0392b">❌ ${esc(e.message)}</span>`;
-    });
-  },
-
-  /* ---------- Modify FTP Account ---------- */
+/* ---------- Modify FTP Account ---------- */
   whmFtpModify(user) {
     if (!user) {
       const html = `
-        ${this.renderBreadcrumb('WHM', 'FTP Functions » Modify FTP Account')}
+        ${this.renderBreadcrumb('WHM', 'FTP Functions \u00BB Modify FTP Account')}
         <div class="subpage-container">
-          ${this.header('✏️ Modify FTP Account', 'Parola ve dizin değişikliği — anında etkili')}
+          ${this.header('\u270F\uFE0F Modify FTP Account', 'Parola ve dizin de\u011Fi\u015F\u0131\u011Fi \u2014 an\u0131nda etkili')}
           <div class="x3-form-box" style="margin-bottom:12px">
-            <label style="font-size:12px;color:#667">Hesap Seç</label>
+            <label style="font-size:12px;color:#667">Hesap Se\u00E7</label>
             <select id="mfSel" class="x3-input" onchange="cPanelSubPages.whmFtpModify(this.value)" style="margin-top:4px"></select>
           </div>
-          <div id="mfBody"></div>
+          <div id="wfmBody">
+            <div class="x3-form-box" style="text-align:center;color:#889;padding:24px">
+              Hesap se\u00E7iniz \u2014 listeden bir FTP hesab\u0131 belirleyin
+            </div>
+          </div>
         </div>`;
       setTimeout(() => {
         PanelAPI.getFtp().then(d => {
           const sel = document.getElementById('mfSel');
-          if (sel) sel.innerHTML = d.ftp.map(a => `<option value="${esc(a.user)}">${esc(a.user)}</option>`).join('') || '<option value="">— hesap yok —</option>';
+          if (sel) sel.innerHTML = d.ftp.map(a => `<option value="${esc(a.user)}">${esc(a.user)}</option>`).join('') || '<option value="">\u2014 hesap yok \u2014</option>';
         }).catch(() => {});
       }, 50);
       return html;
     }
-    const body = document.getElementById('mfBody');
+    const body = document.getElementById('wfmBody');
     const sel = document.getElementById('mfSel');
     if (sel) sel.value = user;
     if (!body) {
@@ -2308,19 +2493,19 @@ Object.assign(cPanelSubPages, {
   },
 
   loadWhmFtpModify(user) {
-    const body = document.getElementById('mfBody');
+    const body = document.getElementById('wfmBody');
     if (!body || !user) return;
     PanelAPI.getFtp().then(d => {
       const a = d.ftp.find(x => x.user === user);
-      if (!a) { body.innerHTML = errBox('Hesap bulunamadı'); return; }
+      if (!a) { body.innerHTML = errBox('Hesap bulunamad\u0131'); return; }
       body.innerHTML = `
         <div class="x3-form-box">
           <h3 style="margin-top:0">Hesap: <code>${esc(a.user)}</code></h3>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
-            <div><label style="font-size:12px;color:#667">Yeni Parola (boş = değişmez)</label><input type="password" id="mfPass" class="x3-input" placeholder="en az 6 karakter"></div>
+            <div><label style="font-size:12px;color:#667">Yeni Parola (bo\u015F = de\u011Fi\u015Fmez)</label><input type="password" id="mfPass" class="x3-input" placeholder="en az 6 karakter"></div>
             <div><label style="font-size:12px;color:#667">Dizin</label><input type="text" id="mfRoot" class="x3-input" value="${esc(a.root)}"></div>
           </div>
-          <div style="margin-top:14px"><button class="btn-x3-primary" onclick="cPanelSubPages.whmFtpModifySubmit('${esc(a.user)}')">💾 Kaydet</button></div>
+          <div style="margin-top:14px"><button class="btn-x3-primary" onclick="cPanelSubPages.whmFtpModifySubmit('${esc(a.user)}')">\uD83D\uDCCE Kaydet</button></div>
           <div id="mfMsg" style="margin-top:10px;font-size:13px"></div>
         </div>`;
     }).catch(e => { body.innerHTML = errBox(e.message); });
@@ -2346,73 +2531,75 @@ Object.assign(cPanelSubPages, {
   whmFtpDelete(user) {
     if (!user) {
       const html = `
-        ${this.renderBreadcrumb('WHM', 'FTP Functions » Delete FTP Account')}
+        ${this.renderBreadcrumb('WHM', 'FTP Functions \u00BB Delete FTP Account')}
         <div class="subpage-container">
-          ${this.header('🗑 Delete FTP Account', 'Sanal kullanıcı silinir — dosyalar kalır')}
+          ${this.header('\uD83D\uDDD1 Delete FTP Account', 'Sanal kullan\u0131c\u0131 silinir \u2014 dosyalar kal\u0131r')}
           <div class="x3-form-box" style="margin-bottom:12px">
-            <label style="font-size:12px;color:#667">Hesap Seç</label>
+            <label style="font-size:12px;color:#667">Hesap Se\u00E7</label>
             <select id="dfSel" class="x3-input" style="margin-top:4px"></select>
           </div>
-          <button class="btn-x3-primary danger" onclick="cPanelSubPages.whmFtpDeleteSubmit()">🗑 Hesabı Sil</button>
-          <div id="dfMsg" style="margin-top:10px;font-size:13px"></div>
+          <div id="wfdBody">
+            <button class="btn-x3-primary danger" onclick="cPanelSubPages.whmFtpDeleteSubmit()">\uD83D\uDDD1 Hesab\u0131 Sil</button>
+            <div id="dfMsg" style="margin-top:10px;font-size:13px"></div>
+          </div>
         </div>`;
       setTimeout(() => {
         PanelAPI.getFtp().then(d => {
           const sel = document.getElementById('dfSel');
-          if (sel) sel.innerHTML = d.ftp.map(a => `<option value="${esc(a.user)}">${esc(a.user)}</option>`).join('') || '<option value="">— hesap yok —</option>';
+          if (sel) sel.innerHTML = d.ftp.map(a => `<option value="${esc(a.user)}">${esc(a.user)}</option>`).join('') || '<option value="">\u2014 hesap yok \u2014</option>';
         }).catch(() => {});
       }, 50);
       return html;
     }
-    if (!confirm(`"${user}" FTP hesabı silinsin mi?`)) return;
+    if (!confirm(`\"${user}\" FTP hesab\u0131 silinsin mi?`)) return;
     PanelAPI.deleteFtp(user).then(d => {
-      this.toast('🗑 FTP hesabı silindi: ' + d.user);
+      this.toast('\uD83D\uDDD1 FTP hesab\u0131 silindi: ' + d.user);
       const body = document.getElementById('wfBody');
       if (body) this.loadWhmFtp();
-    }).catch(e => this.toast('❌ ' + e.message));
+    }).catch(e => this.toast('\u274C ' + e.message));
   },
 
   whmFtpDeleteSubmit() {
     const sel = document.getElementById('dfSel');
     const user = sel ? sel.value : '';
-    if (!user) { const msg = document.getElementById('dfMsg'); if (msg) msg.innerHTML = '<span style="color:#c0392b">Hesap seçin</span>'; return; }
-    if (!confirm(`"${user}" FTP hesabı silinsin mi?`)) return;
+    if (!user) { const msg = document.getElementById('dfMsg'); if (msg) msg.innerHTML = '<span style="color:#c0392b">Hesap se\u00E7in</span>'; return; }
+    if (!confirm(`\"${user}\" FTP hesab\u0131 silinsin mi?`)) return;
     PanelAPI.deleteFtp(user).then(d => {
       const msg = document.getElementById('dfMsg');
-      if (msg) msg.innerHTML = `<span style="color:#27ae60">✅ Silindi: <strong>${esc(d.user)}</strong></span>`;
-      this.toast('🗑 FTP hesabı silindi: ' + d.user);
+      if (msg) msg.innerHTML = `<span style="color:#27ae60">\u2705 Silindi: <strong>${esc(d.user)}</strong></span>`;
+      this.toast('\uD83D\uDDD1 FTP hesab\u0131 silindi: ' + d.user);
       PanelAPI.getFtp().then(r => {
         const s2 = document.getElementById('dfSel');
-        if (s2) s2.innerHTML = r.ftp.map(a => `<option value="${esc(a.user)}">${esc(a.user)}</option>`).join('') || '<option value="">— hesap yok —</option>';
+        if (s2) s2.innerHTML = r.ftp.map(a => `<option value="${esc(a.user)}">${esc(a.user)}</option>`).join('') || '<option value="">\u2014 hesap yok \u2014</option>';
       }).catch(() => {});
     }).catch(e => {
       const msg = document.getElementById('dfMsg');
-      if (msg) msg.innerHTML = `<span style="color:#c0392b">❌ ${esc(e.message)}</span>`;
+      if (msg) msg.innerHTML = `<span style="color:#c0392b">\u274C ${esc(e.message)}</span>`;
     });
   },
 
-  /* ---------- FTP Connections ---------- */
+/* ---------- FTP Connections ---------- */
   whmFtpConnections() {
     const html = `
-      ${this.renderBreadcrumb('WHM', 'FTP Functions » FTP Connections')}
+      ${this.renderBreadcrumb('WHM', 'FTP Functions \u00BB FTP Connections')}
       <div class="subpage-container">
-        ${this.header('🔌 FTP Connections', 'Aktif FTP oturumları + son giriş kayıtları (vsftpd.log)')}
+        ${this.header('\uD83D\uD50C FTP Connections', 'Aktif FTP oturumlar\u0131 + son giri\u015F kay\u0131tlar\u0131 (vsftpd.log)')}
         <div class="x3-form-box" style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
-          <button class="btn-x3-primary" onclick="cPanelSubPages.loadWhmFtpConnections()">🔄 Yenile</button>
+          <button class="btn-x3-primary" onclick="cPanelSubPages.loadWhmFtpConnections()">\uD83D\uDD04 Yenile</button>
           <div style="font-size:12px;color:#889" id="fcCount"></div>
         </div>
-        <div id="fcBody">${loadingBox('Bağlantılar alınıyor…')}</div>
+        <div id="wfcnBody">${loadingBox('Ba\u011Flant\u0131lar al\u0131n\u0131yor\u2026')}</div>
       </div>`;
     setTimeout(() => this.loadWhmFtpConnections(), 50);
     return html;
   },
 
   loadWhmFtpConnections() {
-    const body = document.getElementById('fcBody');
+    const body = document.getElementById('wfcnBody');
     if (!body) return;
     PanelAPI.getFtpConnections().then(d => {
       const cnt = document.getElementById('fcCount');
-      if (cnt) cnt.textContent = d.sessions.length + ' aktif bağlantı';
+      if (cnt) cnt.textContent = d.sessions.length + ' aktif ba\u011Flant\u0131';
       body.innerHTML = `
         <div class="x3-form-box" style="padding:0;overflow-x:auto">
           <table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -2423,17 +2610,8 @@ Object.assign(cPanelSubPages, {
               <tr>
                 <td style="padding:8px;font-family:monospace;font-size:12px">${esc(s.local)}</td>
                 <td style="padding:8px;font-family:monospace;font-size:12px">${esc(s.peer)}</td>
-                <td style="padding:8px"><span class="badge-active">Bağlı</span></td>
-              </tr>`).join('') : '<tr><td colspan="3" style="padding:16px;text-align:center;color:#889">Aktif FTP bağlantısı yok</td></tr>'}
-            </tbody>
-          </table>
-        </div>
-        <div class="x3-form-box" style="margin-top:12px;padding:12px 16px">
-          <strong style="font-size:13px">Son Giriş Kayıtları (vsftpd.log)</strong>
-          <div style="margin-top:8px;font-family:ui-monospace,monospace;font-size:11px;color:#667;max-height:220px;overflow-y:auto;line-height:1.6">
-            ${d.log.length ? esc(d.log.join('\n')).replace(/\n/g, '<br>') : '<span style="color:#889">Kayıt yok</span>'}
-          </div>
-        </div>`;
+                <td style="padding:8px"><span class="badge-active">Ba\u011Fl\u0131</span></td>
+              </tr>`).join('') : '<tr><td colspan="3" style="padding:16px;text-align:center;color:#889">Aktif FTP ba\u011Flant\u0131s\u0131 yok</td></tr>'}\n            </tbody>\n          </table>\n        </div>\n        <div class="x3-form-box" style="margin-top:12px;padding:12px 16px">\n          <strong style="font-size:13px">Son Giri\u015F Kay\u0131tlar\u0131 (vsftpd.log)</strong>\n          <div style="margin-top:8px;font-family:ui-monospace,monospace;font-size:11px;color:#667;max-height:220px;overflow-y:auto;line-height:1.6">\n            ${d.log.length ? esc(d.log.join('\n')).replace(/\n/g, '<br>') : '<span style="color:#889">Kay\u0131t yok</span>'}\n          </div>\n        </div>`;
     }).catch(e => { body.innerHTML = errBox(e.message); });
   },
 
