@@ -56,12 +56,15 @@ function issueToken(user) {
       name: user.name || user.username
     } : null
   });
+  console.log('[ISSUE TOKEN] New token:', token.substring(0, 20) + '...', 'Total sessions:', sessions.size);
   return token;
 }
 
 function auth(req, res, next) {
   const h = req.headers.authorization || '';
   const token = h.startsWith('Bearer ') ? h.slice(7) : null;
+  console.log('[AUTH] Token:', token ? token.substring(0, 20) + '...' : 'none');
+  console.log('[AUTH] Sessions size:', sessions.size);
   const s = token && sessions.get(token);
   if (!s) return res.status(401).json({ error: 'Geçersiz veya süresi dolmuş oturum' });
   if (s.expires < Date.now()) { sessions.delete(token); return res.status(401).json({ error: 'Oturum süresi doldu' }); }
@@ -100,7 +103,7 @@ const { setupSwagger } = require('./swagger');
 
 app.use(express.json({ limit: '10mb' }));
 app.use('/api', api);
-app.use('/api', whm);
+app.use('/api/whm', whm);
 app.use('/api', backups);
 app.use('/api', users);
 app.use('/api', ssl);
@@ -111,18 +114,23 @@ app.use('/api', monitoring);
 /* ---------- Swagger API Docs ---------- */
 setupSwagger(app);
 
-/* ---------- Statik dosyalar (frontend) ---------- */
-app.use(express.static(ROOT, {
+/* ---------- Statik dosyalar (React frontend) ---------- */
+const FRONTEND_DIST = path.join(ROOT, 'frontend', 'dist');
+app.use(express.static(FRONTEND_DIST, {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.html') || filePath.endsWith('.js') || filePath.endsWith('.css')) {
-      res.setHeader('Content-Type', filePath.endsWith('.html') ? 'text/html; charset=utf-8' : 
-                              filePath.endsWith('.js') ? 'application/javascript; charset=utf-8' : 
+      res.setHeader('Content-Type', filePath.endsWith('.html') ? 'text/html; charset=utf-8' :
+                              filePath.endsWith('.js') ? 'application/javascript; charset=utf-8' :
                               'text/css; charset=utf-8');
     }
   }
 }));
-// SPA fallback
-app.get('/', (req, res) => res.sendFile(path.join(ROOT, 'index.html')));
+// SPA fallback for all routes
+app.get('*', (req, res) => {
+  if (!req.path.startsWith('/api')) {
+    res.sendFile(path.join(FRONTEND_DIST, 'index.html'));
+  }
+});
 
 module.exports = { PANEL_PASSWORD, issueToken, sessions };
 

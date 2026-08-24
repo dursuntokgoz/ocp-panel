@@ -535,5 +535,13 @@ module.exports = ({ run, runJson, auth, issueToken, sessions, PANEL_PASSWORD, rb
    * ========================================================== */
   router.get('/health', (req, res) => res.json({ ok: true, name: 'ocp-panel', time: new Date().toISOString() }));
 
+  router.get('/debug/sessions', (req, res) => {
+    const sessionList = [];
+    sessions.forEach((v, k) => {
+      sessionList.push({ token: k.substring(0, 20) + '...', expires: v.expires, user: v.user });
+    });
+    res.json({ ok: true, sessions: sessionList, count: sessions.size });
+  });
+
   return router;
 };

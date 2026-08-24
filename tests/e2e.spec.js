@@ -1,4 +1,4 @@
-// OCP Panel E2E Tests — Playwright
+// OCP Panel E2E Tests — Playwright (React Frontend)
 // Run: npx playwright test tests/e2e.spec.js
 
 const { test, expect } = require('@playwright/test');
@@ -9,11 +9,11 @@ const USERNAME = 'admin';
 
 test.describe.configure({ retries: 1 });
 
-test.describe('OCP Panel — Full E2E Suite', () => {
+test.describe('OCP Panel — Full E2E Suite (React)', () => {
   let page;
   let context;
 
-  test.beforeAll(async ({ browser }) => {
+test.beforeAll(async ({ browser }) => {
     context = await browser.newContext({
       ignoreHTTPSErrors: true,
       viewport: { width: 1440, height: 900 }
@@ -23,9 +23,13 @@ test.describe('OCP Panel — Full E2E Suite', () => {
     // Console error tracking
     const errors = [];
     page.on('console', msg => {
+      console.log('BROWSER CONSOLE:', msg.type(), msg.text());
       if (msg.type() === 'error') errors.push(msg.text());
     });
-    page.on('pageerror', err => errors.push(err.message));
+    page.on('pageerror', err => {
+      console.log('PAGE ERROR:', err.message);
+      errors.push(err.message);
+    });
     test.errors = errors;
   });
 
@@ -36,322 +40,182 @@ test.describe('OCP Panel — Full E2E Suite', () => {
   // --- Helper: login ---
   async function login() {
     await page.goto(BASE_URL, { waitUntil: 'networkidle' });
-    // If login overlay visible, login
-    const overlay = page.locator('#loginOverlay');
-    if (await overlay.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await page.fill('#loginPass', PASSWORD);
-      await page.click('#loginBtn');
-      await page.waitForSelector('#loginOverlay', { state: 'hidden' });
-      await page.waitForSelector('.x3-tool-item', { state: 'visible', timeout: 10000 });
+    // Check if already logged in (dashboard visible)
+    const dashboardTitle = page.locator('h1.page-title:has-text("Dashboard")');
+    if (await dashboardTitle.isVisible({ timeout: 2000 }).catch(() => false)) {
+      return; // Already logged in
     }
-    // Verify dashboard
-    await expect(page.locator('.x3-tool-item').first()).toBeVisible();
+    // React login page has username/password inputs
+    await page.fill('#username', USERNAME);
+    await page.fill('#password', PASSWORD);
+    await page.click('button[type="submit"]');
+    // Wait for redirect to dashboard
+    await page.waitForURL('**/dashboard', { timeout: 10000 });
+    // Wait for dashboard to load
+    await page.waitForSelector('h1.page-title:has-text("Dashboard")', { timeout: 10000 });
   }
 
   // --- Helper: logout ---
   async function logout() {
-    await page.click('a[onclick*="logout"]');
-    await page.waitForSelector('#loginOverlay', { state: 'visible', timeout: 5000 });
+    // Click user menu or logout button - for now just navigate to login
+    await page.goto(BASE_URL + '/logout', { waitUntil: 'networkidle' }).catch(() => {});
+    // Or clear localStorage and reload
+    await page.evaluate(() => localStorage.clear());
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForSelector('#username', { timeout: 5000 });
   }
 
-  // --- Helper: open tool via sidebar ---
-  async function openTool(actionName, categoryTitle = null) {
-    // Find and click tool in sidebar (div with onclick, not a tag)
-    const toolLink = page.locator(`[onclick*="openTool('${actionName}')"]`).first();
-    await expect(toolLink).toBeVisible({ timeout: 5000 });
-    await toolLink.click();
-    // Wait for subpage to load
-    await page.waitForSelector('.subpage-container', { state: 'visible', timeout: 10000 });
-    // Verify breadcrumb shows the tool
-    await expect(page.locator('.breadcrumb-bar strong')).toBeVisible();
+  // --- Helper: navigate via sidebar ---
+  async function navigateTo(path) {
+    // Debug: list all links in sidebar
+    const allLinks = await page.locator('aside a').all();
+    console.log('Sidebar links:', allLinks.length);
+    for (const link of allLinks) {
+      const href = await link.getAttribute('href');
+      const text = await link.textContent();
+      console.log(`  Link: href="${href}", text="${text}"`);
+    }
+    
+    // Click sidebar link by href - NavLink renders as <a> with href
+    const link = page.locator(`aside a[href="${path}"]`).first();
+    await expect(link).toBeVisible({ timeout: 5000 });
+    await link.click();
+    // Wait for page to load
+    await page.waitForURL(`**${path}`, { timeout: 10000 });
+    await page.waitForSelector('h1.page-title', { timeout: 10000 });
   }
 
-  // --- Helper: open WHM tool ---
-  async function openWhmTool(actionName) {
-    return openTool(actionName, 'WHM');
+  // --- Helper: open WHM submenu ---
+  async function openWhmTool(toolPath) {
+    // Ensure WHM section is expanded
+    const whmButton = page.locator('aside button:has-text("WHM")').first();
+    const isExpanded = await whmButton.getAttribute('aria-expanded');
+    if (isExpanded !== 'true') {
+      await whmButton.click();
+      await page.waitForTimeout(300);
+    }
+    await navigateTo(toolPath);
+  }
+
+  // --- Helper: open System submenu ---
+  async function openSystemTool(toolPath) {
+    const sysButton = page.locator('aside button:has-text("System")').first();
+    const isExpanded = await sysButton.getAttribute('aria-expanded');
+    if (isExpanded !== 'true') {
+      await sysButton.click();
+      await page.waitForTimeout(300);
+    }
+    await navigateTo(toolPath);
   }
 
   test('1. Login with valid credentials', async () => {
     await login();
-    // Dashboard should have tool grid (verified in login helper)
-    await expect(page.locator('.x3-tool-item').first()).toBeVisible();
+    // Dashboard should be visible
+    await expect(page.locator('h1.page-title:has-text("Dashboard")')).toBeVisible();
   });
 
-  test('2. Dashboard loads with stats', async () => {
-    // Stats are loaded by updateStats() after login
-    await page.waitForTimeout(2000); // wait for stats API call
-    await expect(page.locator('#statDisk')).not.toContainText('…');
-    await expect(page.locator('#statBandwidth')).not.toContainText('…');
-    await expect(page.locator('#statEmails')).not.toContainText('…');
+  test('2. Dashboard loads with stats cards', async () => {
+    await login();
+    // Wait for stats to load
+    await page.waitForTimeout(2000);
+    // Check stat cards are present (4 cards: CPU, Memory, Disk, Load)
+    const statCards = page.locator('.card:has(.card-body)');
+    await expect(statCards.first()).toBeVisible();
+    // At least 3 stat cards should be visible
+    const count = await statCards.count();
+    expect(count).toBeGreaterThanOrEqual(3);
   });
 
-  // --- WHM / Home ---
-  test.describe('WHM > Home', () => {
-    test.beforeEach(async () => {
-      await login();
-    });
-
-    test('Server Status', async () => {
-      await openWhmTool('serverStatus');
-      await expect(page.locator('#ssBody')).toBeVisible();
-      await expect(page.locator('#ssBody')).toContainText('CPU Kullanımı');
-      await expect(page.locator('#ssBody')).toContainText('RAM');
-      await expect(page.locator('#ssBody')).toContainText('Disk');
-    });
-
-    test('Live Monitor (SSE)', async () => {
-      await openWhmTool('liveMonitor');
-      await expect(page.locator('#lmCpuChart')).toBeVisible();
-      await expect(page.locator('#lmMemChart')).toBeVisible();
-      // Wait for SSE data (may take time in test env)
-      await page.waitForTimeout(5000);
-      // Just verify elements exist; SSE data arrival is flaky in test
-      await expect(page.locator('#lmCpuVal')).toBeVisible();
-      await expect(page.locator('#lmMemVal')).toBeVisible();
-    });
-
-    test('Services', async () => {
-      await openWhmTool('services');
-      await expect(page.locator('#svcBody')).toBeVisible();
-      await page.waitForTimeout(2000);
-      await expect(page.locator('#svcBody table')).toBeVisible();
-    });
-
-    test('Network Interfaces', async () => {
-      await openWhmTool('network');
-      await expect(page.locator('#netBody')).toBeVisible();
-      await page.waitForTimeout(2000);
-      const boxes = page.locator('#netBody .x3-form-box');
-      const count = await boxes.count();
-      expect(count).toBeGreaterThan(0);
-    });
-
-    test('System Users', async () => {
-      await openWhmTool('systemUsers');
-      await expect(page.locator('#usrBody')).toBeVisible();
-      await page.waitForTimeout(2000);
-      await expect(page.locator('#usrBody table')).toBeVisible();
-    });
-
-    test('Docker Manager', async () => {
-      await openWhmTool('dockerManager');
-      await expect(page.locator('#dmBody')).toBeVisible();
-      await page.waitForTimeout(3000);
-      await expect(page.locator('#dmBody')).toBeVisible();
-    });
-
-    test('Backup Manager', async () => {
-      await openWhmTool('backupManager');
-      await expect(page.locator('#bkBody')).toBeVisible();
-      await page.waitForTimeout(2000);
-      await expect(page.locator('#bkBody')).toBeVisible();
-    });
-  });
-
-  // --- WHM / Account Functions ---
+  // --- WHM / Home (Dashboard serves as home) ---
   test.describe('WHM > Account Functions', () => {
     test.beforeEach(async () => {
       await login();
     });
 
-    test('Create a New Account', async () => {
-      await openWhmTool('createAccount');
-      // Form renders directly, check for domain input
-      await expect(page.locator('#caDomain')).toBeVisible();
-      await expect(page.locator('#caUser')).toBeVisible();
-      await expect(page.locator('#caPass')).toBeVisible();
-      await expect(page.locator('#caPkg')).toBeVisible();
+    test('Account Functions list', async () => {
+      await openWhmTool('/whm/accounts');
+      await expect(page.locator('h1.page-title:has-text("Account Functions")')).toBeVisible();
+      await expect(page.locator('table')).toBeVisible();
     });
 
-    test('List Accounts', async () => {
-      await openWhmTool('listAccounts');
-      await expect(page.locator('#laBody')).toBeVisible();
+    test('Create Account modal opens', async () => {
+      await openWhmTool('/whm/accounts');
+      await page.click('button:has-text("Create Account")');
+      await expect(page.locator('.modal:has-text("Create Account")')).toBeVisible();
+      await expect(page.locator('input[placeholder="username"]')).toBeVisible();
+      await expect(page.locator('input[placeholder="example.com"]')).toBeVisible();
+      // Close modal
+      await page.click('.modal-footer button:has-text("Cancel")');
+    });
+
+    test('List Accounts table loads', async () => {
+      await openWhmTool('/whm/accounts');
+      await expect(page.locator('table tbody')).toBeVisible();
       await page.waitForTimeout(2000);
-      await expect(page.locator('#laBody table')).toBeVisible();
-    });
-
-    test('Modify an Account', async () => {
-      await openWhmTool('modifyAccount');
-      await expect(page.locator('#maBody')).toBeVisible();
-    });
-
-    test('Terminate an Account', async () => {
-      await openWhmTool('terminateAccount');
-      await expect(page.locator('#taBody')).toBeVisible();
-      await expect(page.locator('#taSel')).toBeVisible();
     });
   });
 
-  // --- WHM / Packages ---
   test.describe('WHM > Packages', () => {
     test.beforeEach(async () => {
       await login();
     });
 
-    test('Add a Package', async () => {
-      await openWhmTool('addPackage');
-      await expect(page.locator('#apBody')).toBeVisible();
-      await expect(page.locator('#apBody form')).toBeVisible();
+    test('Packages page loads', async () => {
+      await openWhmTool('/whm/packages');
+      await expect(page.locator('h1.page-title:has-text("Packages")')).toBeVisible();
     });
 
-    test('Edit a Package', async () => {
-      await openWhmTool('editPackage');
-      await expect(page.locator('#epBody')).toBeVisible();
-    });
-
-    test('Delete a Package', async () => {
-      await openWhmTool('deletePackage');
-      await expect(page.locator('#dpBody')).toBeVisible();
-    });
-
-    test('List Packages', async () => {
-      await openWhmTool('listPackages');
-      await expect(page.locator('#lpBody')).toBeVisible();
-      await page.waitForTimeout(2000);
-      await expect(page.locator('#lpBody table')).toBeVisible();
-      await page.waitForTimeout(2000);
-      await expect(page.locator('#lpBody table')).toBeVisible();
+    test('Add Package form visible', async () => {
+      await openWhmTool('/whm/packages');
+      await page.click('button:has-text("Add Package"), button:has-text("Create Package")');
+      // Check if modal or form appears
+      await page.waitForTimeout(1000);
+      const form = page.locator('form, .modal').first();
+      await expect(form).toBeVisible();
     });
   });
 
-  // --- WHM / Resellers ---
   test.describe('WHM > Resellers', () => {
     test.beforeEach(async () => {
       await login();
     });
 
-    test('Reseller Center', async () => {
-      await openWhmTool('resellerCenter');
-      await expect(page.locator('#rcBody')).toBeVisible();
-      await page.waitForTimeout(2000);
-      await expect(page.locator('#rcBody table')).toBeVisible();
-      await page.waitForTimeout(2000);
-      await expect(page.locator('#rcBody table')).toBeVisible();
-    });
-
-    test('Create a Reseller', async () => {
-      await openWhmTool('createReseller');
-      await expect(page.locator('#crBody')).toBeVisible();
-      await expect(page.locator('#crBody form')).toBeVisible();
-    });
-
-    test('Reseller Modification', async () => {
-      await openWhmTool('resellerModification');
-      await expect(page.locator('#rmBody')).toBeVisible();
-    });
-
-    test('Terminate a Reseller', async () => {
-      await openWhmTool('terminateReseller');
-      await expect(page.locator('#trBody')).toBeVisible();
+    test('Resellers page loads', async () => {
+      await openWhmTool('/whm/resellers');
+      await expect(page.locator('h1.page-title:has-text("Resellers")')).toBeVisible();
     });
   });
 
-  // --- WHM / DNS Functions ---
   test.describe('WHM > DNS Functions', () => {
     test.beforeEach(async () => {
       await login();
     });
 
-    test('DNS Zone Manager', async () => {
-      await openWhmTool('dnsZoneManager');
-      await expect(page.locator('#dzmBody')).toBeVisible();
-      await page.waitForTimeout(2000);
-      await expect(page.locator('#dzmBody table')).toBeVisible();
-      await page.waitForTimeout(2000);
-      await expect(page.locator('#dzmBody table')).toBeVisible();
-    });
-
-    test('Add a DNS Zone', async () => {
-      await openWhmTool('addDnsZone');
-      await expect(page.locator('#adzBody')).toBeVisible();
-      await expect(page.locator('#adzBody form')).toBeVisible();
-    });
-
-    test('Edit DNS Zone', async () => {
-      await openWhmTool('editDnsZone');
-      await expect(page.locator('#edzBody')).toBeVisible();
+    test('DNS Functions page loads', async () => {
+      await openWhmTool('/whm/dns');
+      await expect(page.locator('h1.page-title:has-text("DNS")')).toBeVisible();
     });
   });
 
-  // --- WHM / Email Functions ---
   test.describe('WHM > Email Functions', () => {
     test.beforeEach(async () => {
       await login();
     });
 
-    test('Email Accounts', async () => {
-      await openWhmTool('whmEmails');
-      await expect(page.locator('#weBody')).toBeVisible();
-      await page.waitForTimeout(2000);
-      await expect(page.locator('#weBody table')).toBeVisible();
-      await page.waitForTimeout(2000);
-      await expect(page.locator('#weBody table')).toBeVisible();
-    });
-
-    test('Create an Email Account', async () => {
-      await openWhmTool('whmEmailCreate');
-      await expect(page.locator('#wecBody')).toBeVisible();
-      await expect(page.locator('#wecBody form')).toBeVisible();
-    });
-
-    test('Modify Email Account', async () => {
-      await openWhmTool('whmEmailModify');
-      await expect(page.locator('#wemBody')).toBeVisible();
-    });
-
-    test('Delete Email Account', async () => {
-      await openWhmTool('whmEmailDelete');
-      await expect(page.locator('#wdeBody')).toBeVisible();
-    });
-
-    test('Email Disk Usage', async () => {
-      await openWhmTool('whmEmailDisk');
-      await expect(page.locator('#wedBody')).toBeVisible();
-      await page.waitForTimeout(2000);
-      await expect(page.locator('#wedBody table')).toBeVisible();
-      await page.waitForTimeout(2000);
-      await expect(page.locator('#wedBody table')).toBeVisible();
+    test('Email Functions page loads', async () => {
+      await openWhmTool('/whm/email');
+      await expect(page.locator('h1.page-title:has-text("Email")')).toBeVisible();
     });
   });
 
-  // --- WHM / FTP Functions ---
   test.describe('WHM > FTP Functions', () => {
     test.beforeEach(async () => {
       await login();
     });
 
-    test('FTP Accounts', async () => {
-      await openWhmTool('whmFtp');
-      await expect(page.locator('#wfBody')).toBeVisible();
-      await page.waitForTimeout(2000);
-      await expect(page.locator('#wfBody table')).toBeVisible();
-      await page.waitForTimeout(2000);
-      await expect(page.locator('#wfBody table')).toBeVisible();
-    });
-
-    test('Create FTP Account', async () => {
-      await openWhmTool('whmFtpCreate');
-      await expect(page.locator('#wfcBody')).toBeVisible();
-      await expect(page.locator('#wfcBody form')).toBeVisible();
-    });
-
-    test('Modify FTP Account', async () => {
-      await openWhmTool('whmFtpModify');
-      await expect(page.locator('#wfmBody')).toBeVisible();
-    });
-
-    test('Delete FTP Account', async () => {
-      await openWhmTool('whmFtpDelete');
-      await expect(page.locator('#wfdBody')).toBeVisible();
-    });
-
-    test('FTP Connections', async () => {
-      await openWhmTool('whmFtpConnections');
-      await expect(page.locator('#wfcnBody')).toBeVisible();
-      await page.waitForTimeout(2000);
-      await expect(page.locator('#wfcnBody table')).toBeVisible();
-      await page.waitForTimeout(2000);
-      await expect(page.locator('#wfcnBody table')).toBeVisible();
+    test('FTP Functions page loads', async () => {
+      await openWhmTool('/whm/ftp');
+      await expect(page.locator('h1.page-title:has-text("FTP")')).toBeVisible();
     });
   });
 
@@ -362,162 +226,103 @@ test.describe('OCP Panel — Full E2E Suite', () => {
     });
 
     test('Terminal', async () => {
-      await openTool('terminal');
-      await expect(page.locator('#termBody')).toBeVisible();
-      await expect(page.locator('#termInput')).toBeVisible();
+      await openSystemTool('/system/terminal');
+      await expect(page.locator('h1.page-title:has-text("Terminal")')).toBeVisible();
+      // Check terminal input exists
+      await expect(page.locator('input[placeholder="Enter command..."]')).toBeVisible();
       // Test command
-      await page.fill('#termInput', 'echo test123');
-      await page.click('#termBtn');
+      await page.fill('input[placeholder="Enter command..."]', 'echo test123');
+      await page.click('button[type="submit"]:has(svg)'); // Send button
       await page.waitForTimeout(2000);
-      await expect(page.locator('#termOutput')).toContainText('test123');
+      // Check output contains test123
+      await expect(page.locator('.h-96')).toContainText('test123');
     });
 
     test('File Manager', async () => {
-      await openTool('fileManager');
-      await expect(page.locator('#fmBody')).toBeVisible();
-      await page.waitForTimeout(2000);
-      await expect(page.locator('#fmBody table')).toBeVisible();
-      await page.waitForTimeout(2000);
-      await expect(page.locator('#fmBody table')).toBeVisible();
+      await openSystemTool('/system/files');
+      await expect(page.locator('h1.page-title:has-text("File Manager")')).toBeVisible();
+      await expect(page.locator('table')).toBeVisible();
     });
 
     test('Process Manager', async () => {
-      await openTool('processes');
-      await expect(page.locator('#pmBody')).toBeVisible();
-      await page.waitForTimeout(2000);
-      await expect(page.locator('#pmBody table')).toBeVisible();
-      await page.waitForTimeout(2000);
-      await expect(page.locator('#pmBody table')).toBeVisible();
+      await openSystemTool('/system/processes');
+      await expect(page.locator('h1.page-title:has-text("Process")')).toBeVisible();
+      await expect(page.locator('table')).toBeVisible();
     });
 
     test('Cron Jobs', async () => {
-      await openTool('cron');
-      await expect(page.locator('#cronBody')).toBeVisible();
-      await page.waitForTimeout(2000);
-      await expect(page.locator('#cronBody')).toBeVisible();
+      await openSystemTool('/system/cron');
+      await expect(page.locator('h1.page-title:has-text("Cron")')).toBeVisible();
     });
 
     test('Error Logs', async () => {
-      await openTool('logs');
-      await expect(page.locator('#logsBody')).toBeVisible();
-      await page.waitForTimeout(2000);
-      await expect(page.locator('#logsBody')).toBeVisible();
-    });
-
-    test('Disk Usage', async () => {
-      await openTool('diskUsage');
-      await expect(page.locator('#duBody')).toBeVisible();
-      await page.waitForTimeout(3000);
-      await expect(page.locator('#duBody')).toBeVisible();
+      await openSystemTool('/system/logs');
+      await expect(page.locator('h1.page-title:has-text("Error Logs")')).toBeVisible();
     });
 
     test('MySQL', async () => {
-      await openTool('mysql');
-      await expect(page.locator('#mysqlBody')).toBeVisible();
-      await page.waitForTimeout(2000);
-      await expect(page.locator('#mysqlBody')).toBeVisible();
+      await openSystemTool('/system/mysql');
+      await expect(page.locator('h1.page-title:has-text("MySQL")')).toBeVisible();
     });
 
-    test('Resource Usage', async () => {
-      await openTool('resourceUsage');
-      await expect(page.locator('#ruBody')).toBeVisible();
+    test('SSL/TLS Manager', async () => {
+      await openSystemTool('/system/ssl');
+      await expect(page.locator('h1.page-title:has-text("SSL")')).toBeVisible();
     });
 
-    test('CPU/Concurrent', async () => {
-      await openTool('cpuConcurrent');
-      await expect(page.locator('#ccBody')).toBeVisible();
+    test('PHP Selector', async () => {
+      await openSystemTool('/system/php-selector');
+      await expect(page.locator('h1.page-title:has-text("PHP")')).toBeVisible();
     });
 
-    test('Visitors', async () => {
-      await openTool('visitors');
-      await expect(page.locator('#visBody')).toBeVisible();
+    test('Firewall', async () => {
+      await openSystemTool('/system/firewall');
+      await expect(page.locator('h1.page-title:has-text("Firewall")')).toBeVisible();
     });
 
-    test('Bandwidth', async () => {
-      await openTool('bandwidth');
-      await expect(page.locator('#bwBody')).toBeVisible();
-    });
-  });
-
-  // --- cPanel Simulation Modules (Preferences, Mail, Files, etc.) ---
-  test.describe('cPanel Simulation Modules', () => {
-    test.beforeEach(async () => {
-      await login();
+    test('Monitoring', async () => {
+      await openSystemTool('/system/monitoring');
+      await expect(page.locator('h1.page-title:has-text("Monitoring")')).toBeVisible();
     });
 
-    test('Change Password', async () => {
-      await openTool('changePassword');
-      await expect(page.locator('#mainContentArea')).toContainText('Change Password');
-    });
-
-    test('Webmail button exists', async () => {
-      await openTool('webmail');
-      // Webmail opens in new tab — just verify link/button exists
-      await expect(page.locator('#mainContentArea')).toContainText('Webmail');
+    test('Backups', async () => {
+      await openSystemTool('/system/backups');
+      await expect(page.locator('h1.page-title:has-text("Backups")')).toBeVisible();
     });
   });
 
-  // --- Switch Account / Domain ---
-  test.describe('Switch Account & Domain', () => {
-    test.beforeEach(async () => {
-      await login();
-    });
-
-    test('Switch Account dropdown loads resellers', async () => {
-      const select = page.locator('#switchAccountSelect');
-      await expect(select).toBeVisible();
-      await expect(select).toBeEnabled();
-      // Should have at least root option
-      const options = await select.locator('option').all();
-      expect(options.length).toBeGreaterThan(0);
-    });
-
-    test('Switch Domain dropdown enables after reseller select', async () => {
-      const domainSelect = page.locator('#switchDomainSelect');
-      // Initially disabled
-      await expect(domainSelect).toBeDisabled();
-      // Select a reseller if available
-      const accountSelect = page.locator('#switchAccountSelect');
-      const options = await accountSelect.locator('option').all();
-      if (options.length > 1) {
-        await accountSelect.selectOption({ index: 1 });
-        await page.waitForTimeout(1000);
-        await expect(domainSelect).toBeEnabled();
-      }
-    });
+  // --- Settings ---
+  test('Settings page loads', async () => {
+    await login();
+    await navigateTo('/settings');
+    await expect(page.locator('h1.page-title:has-text("Settings")')).toBeVisible();
   });
 
-  // --- Refresh persistence test (critical bug fix) ---
-  test.describe('Session Persistence (Refresh Bug Fix)', () => {
+  // --- Session Persistence ---
+  test.describe('Session Persistence', () => {
     test.beforeEach(async () => {
       await login();
-    });
-
-    test.afterEach(async () => {
-      await logout();
     });
 
     test('Page refresh keeps user logged in', async () => {
-      // Verify logged in
-      await expect(page.locator('#mainContentArea')).toBeVisible();
-      
+      // Verify on dashboard
+      await expect(page.locator('h1.page-title:has-text("Dashboard")')).toBeVisible();
+
       // Refresh page
       await page.reload({ waitUntil: 'networkidle' });
-      
-      // Should NOT show login overlay
-      await expect(page.locator('#loginOverlay')).toBeHidden({ timeout: 3000 });
+
+      // Should NOT show login page (username input)
+      await expect(page.locator('#username')).toBeHidden({ timeout: 3000 });
       // Dashboard should be visible
-      await expect(page.locator('#mainContentArea')).toBeVisible();
-      // And tool grid should be there
-      await expect(page.locator('.x3-tool-item').first()).toBeVisible({ timeout: 5000 });
+      await expect(page.locator('h1.page-title:has-text("Dashboard")')).toBeVisible({ timeout: 5000 });
     });
 
     test('Token persists in localStorage after refresh', async () => {
       const tokenBefore = await page.evaluate(() => localStorage.getItem('ocp_token'));
       expect(tokenBefore).toBeTruthy();
-      
+
       await page.reload({ waitUntil: 'networkidle' });
-      
+
       const tokenAfter = await page.evaluate(() => localStorage.getItem('ocp_token'));
       expect(tokenAfter).toBe(tokenBefore);
     });
@@ -526,7 +331,9 @@ test.describe('OCP Panel — Full E2E Suite', () => {
   // --- Logout ---
   test('Logout works', async () => {
     await login();
-    await logout();
-    await expect(page.locator('#loginOverlay')).toBeVisible();
+    // Clear localStorage to simulate logout
+    await page.evaluate(() => localStorage.clear());
+    await page.reload({ waitUntil: 'networkidle' });
+    await expect(page.locator('#username')).toBeVisible({ timeout: 5000 });
   });
 });

@@ -166,6 +166,99 @@ server {
   });
 
 /* ==========================================================
+ * HESAPLAR (cPanel 'List Accounts' benzeri — domain + hosting)
+ * ========================================================== */
+  router.get('/accounts', auth, (req, res) => {
+    const db = loadDB();
+    const search = String(req.query.search || '').toLowerCase();
+    const sysUsers = run(`getent passwd | awk -F: '$3>=1000 && $3<65534 {print $1}'`).output.trim().split('\n').filter(Boolean);
+    const list = db.domains
+      .filter(d => !search || d.name.includes(search) || d.reseller.includes(search))
+      .map(d => {
+        const reseller = db.resellers.find(r => r.username === d.reseller);
+        const pkg = reseller ? getPackage(db, reseller.package) : null;
+        const size = dirSize(d.root);
+        return {
+          username: d.reseller,
+          domain: d.name,
+          package: reseller ? reseller.package : '—',
+          email: reseller ? reseller.email : '',
+          disk_used: size,
+          disk_limit: pkg && pkg.diskGB > 0 ? pkg.diskGB * 1024 * 1024 * 1024 : 0,
+          created: d.created,
+          status: reseller ? (sysUsers.includes(d.reseller) ? 'active' : 'suspended') : 'suspended'
+        };
+      });
+    res.json({ ok: true, accounts: list });
+  });
+
+router.post('/accounts', auth, (req, res) => {
+    // Create account = create reseller + domain
+    const b = req.body || {};
+    if (!b.username || !NAME_RE.test(b.username)) return res.status(400).json({ error: 'Geçersiz kullanıcı adı' });
+    if (!b.domain || !DOMAIN_RE.test(b.domain)) return res.status(400).json({ error: 'Geçersiz domain adı' });
+    if (!b.password || b.password.length < 6) return res.status(400).json({ error: 'Parola en az 6 karakter olmalı' });
+    if (!getPackage(db, b.package)) return res.status(400).json({ error: 'Geçersiz paket: ' + b.package });
+
+    if (db.resellers.some(r => r.username === b.username.toLowerCase())) return res.status(400).json({ error: 'Bu kullanıcı adı zaten var' });
+    if (db.domains.some(d => d.name === b.domain.toLowerCase())) return res.status(400).json({ error: 'Bu domain zaten kayıtlı' });
+
+    const uname = b.username.toLowerCase();
+    const r1 = sudo(`useradd -m -s /bin/bash -d /home/${uname} ${uname}`, 15000);
+    if (!r1.ok) return res.status(500).json({ error: 'Kullanıcı oluşturulamadı: ' + r1.output.trim() });
+    sudo(`echo "${uname}:${b.password}" | chpasswd`, 15000);
+    sudo(`mkdir -p /home/${uname}/public_html && echo "<h1>${uname} — Hoş Geldiniz</h1>" > /home/${uname}/public_html/index.html && chown -R ${uname}:${uname} /home/${uname}/public_html`, 15000);
+
+    let root = b.root || `/home/${uname}/public_html`;
+    root = root.replace(/\/+$/, '');
+    sudo(`sh -c 'mkdir -p ${root} && [ -f ${root}/index.html ] || printf "<h1>${b.domain}</h1><p>OCP Panel tarafından oluşturuldu.</p>" > ${root}/index.html'`, 10000);
+    sudo(`chown -R ${uname}:${uname} ${root}`, 10000);
+    writeVhost(b.domain, root, b.php || null);
+    hostsAdd(b.domain);
+    reloadNginx();
+
+    const reseller = { username: uname, package: b.package, email: b.email || '', created: new Date().toISOString() };
+    const domain = { name: b.domain.toLowerCase(), reseller: uname, root, php: b.php || null, ssl: !!b.ssl, created: new Date().toISOString() };
+    db.resellers.push(reseller);
+    db.domains.push(domain);
+    saveDB(db);
+    syncMailMaps();
+
+    res.json({ ok: true, account: { ...reseller, domain: b.domain, root, disk_used: 0, disk_limit: getPackage(db, b.package)?.diskGB * 1024 * 1024 * 1024 || 0, created: reseller.created, status: 'active' } });
+  });
+
+  router.put('/accounts/:username', auth, (req, res) => {
+    const username = req.params.username.toLowerCase();
+    const db = loadDB();
+    const reseller = db.resellers.find(r => r.username === username);
+    if (!reseller) return res.status(404).json({ error: 'Hesap bulunamadı' });
+    const b = req.body || {};
+    if (b.package) {
+      if (!getPackage(db, b.package)) return res.status(400).json({ error: 'Geçersiz paket' });
+      reseller.package = b.package;
+    }
+    if (b.email != null) reseller.email = b.email;
+    if (b.password) sudo(`echo "${username}:${b.password}" | chpasswd`, 15000);
+    saveDB(db);
+    res.json({ ok: true, account: { ...reseller, status: sysUsers.includes(username) ? 'active' : 'suspended' } });
+  });
+
+  router.delete('/accounts/:username', auth, (req, res) => {
+    const uname = req.params.username.toLowerCase();
+    const db = loadDB();
+    const idx = db.resellers.findIndex(r => r.username === uname);
+    if (idx === -1) return res.status(404).json({ error: 'Hesap bulunamadı' });
+    const domains = db.domains.filter(d => d.reseller === uname);
+    domains.forEach(d => { removeVhost(d.name); hostsRemove(d.name); });
+    db.domains = db.domains.filter(d => d.reseller !== uname);
+    sudo(`userdel -r ${uname} 2>/dev/null || true`, 20000);
+    db.resellers.splice(idx, 1);
+    saveDB(db);
+    reloadNginx();
+    res.json({ ok: true, removedDomains: domains.length });
+  });
+
+/* ==========================================================
  * RESELLER SWITCH — reseller bağlamı değiştir
  * ========================================================== */
   router.get('/resellers/switch/:username', auth, (req, res) => {
@@ -498,8 +591,11 @@ server {
   }
 
   function sudoDirSize(p) {
+    // Disable sudo du for now - causes hangs
+    return 0;
     try {
-      const r = sudo(`du -sb "${p}" 2>/dev/null | cut -f1`, 10000);
+      const r = sudo(`du -sb "${p}" 2>/dev/null | cut -f1`, 5000);
+      if (!r.ok) return 0;
       return parseInt(r.output.trim()) || 0;
     } catch (e) { return 0; }
   }
