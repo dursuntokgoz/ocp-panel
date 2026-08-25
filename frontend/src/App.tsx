@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
+import { WHMProvider } from './contexts/WHMContext';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { Login } from './pages/auth/Login';
@@ -41,9 +42,10 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+          <WHMProvider>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route path="/dashboard" element={<Dashboard />} />
               {/* WHM Routes */}
               <Route path="/whm/accounts" element={<WHMAccounts />} />
@@ -69,6 +71,7 @@ function App() {
             </Route>
           </Routes>
           <ToastContainer />
+        </WHMProvider>
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>
