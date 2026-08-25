@@ -2,10 +2,24 @@
 // Run: npx playwright test tests/e2e.spec.js
 
 const { test, expect } = require('@playwright/test');
+const fs = require('fs');
+const path = require('path');
 
 const BASE_URL = process.env.BASE_URL || 'https://192.168.1.2:2083';
 const PASSWORD = process.env.OCP_PASSWORD || '9952f52f';
 const USERNAME = 'admin';
+
+// Screenshot directory
+const SCREENSHOT_DIR = path.join(__dirname, 'screenshots');
+if (!fs.existsSync(SCREENSHOT_DIR)) {
+  fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
+}
+
+async function takeScreenshot(page, name) {
+  const filepath = path.join(SCREENSHOT_DIR, `${name}.png`);
+  await page.screenshot({ path: filepath, fullPage: true });
+  console.log(`Screenshot saved: ${filepath}`);
+}
 
 test.describe.configure({ retries: 1 });
 
@@ -13,7 +27,7 @@ test.describe('OCP Panel — Full E2E Suite (React)', () => {
   let page;
   let context;
 
-test.beforeAll(async ({ browser }) => {
+  test.beforeAll(async ({ browser }) => {
     context = await browser.newContext({
       ignoreHTTPSErrors: true,
       viewport: { width: 1440, height: 900 }
@@ -35,6 +49,13 @@ test.beforeAll(async ({ browser }) => {
 
   test.afterAll(async () => {
     await context.close();
+  });
+
+  // Screenshot after each test
+  test.afterEach(async () => {
+    const testInfo = test.info();
+    const testName = testInfo.title.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
+    await takeScreenshot(page, `${testInfo.titlePath.join('_')}_${testName}`);
   });
 
   // --- Helper: login ---
