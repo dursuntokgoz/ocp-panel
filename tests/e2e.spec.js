@@ -310,6 +310,42 @@ test.describe('OCP Panel — Full E2E Suite (React)', () => {
       await openSystemTool('/system/backups');
       await expect(page.locator('h1.page-title:has-text("Backups")')).toBeVisible();
     });
+
+    test('Docker', async () => {
+      await openSystemTool('/system/docker');
+      await expect(page.locator('h1.page-title:has-text("Docker")')).toBeVisible();
+      await expect(page.locator('table')).toBeVisible();
+    });
+
+    test('Services', async () => {
+      await openSystemTool('/system/services');
+      await expect(page.locator('h1.page-title:has-text("Services")')).toBeVisible();
+      await expect(page.locator('table')).toBeVisible();
+    });
+
+    test('Live Monitor', async () => {
+      await openSystemTool('/system/live-monitor');
+      await expect(page.locator('h1.page-title:has-text("Live Monitor")')).toBeVisible();
+      // Start stream and check canvas
+      await page.click('button:has-text("Start")');
+      await page.waitForTimeout(3000);
+      await expect(page.locator('canvas').first()).toBeVisible();
+      await page.click('button:has-text("Stop")');
+    });
+
+    test('User Manager', async () => {
+      await openSystemTool('/system/users');
+      await expect(page.locator('h1.page-title:has-text("User Manager")')).toBeVisible();
+      await expect(page.locator('table')).toBeVisible();
+    });
+  });
+
+  // --- Change Password ---
+  test('Change Password page loads', async () => {
+    await login();
+    await navigateTo('/change-password');
+    await expect(page.locator('h1.page-title:has-text("Change Password")')).toBeVisible();
+    await expect(page.locator('input[type="password"]').first()).toBeVisible();
   });
 
   // --- Settings ---

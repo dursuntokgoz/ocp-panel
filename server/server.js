@@ -62,9 +62,8 @@ function issueToken(user) {
 
 function auth(req, res, next) {
   const h = req.headers.authorization || '';
-  const token = h.startsWith('Bearer ') ? h.slice(7) : null;
-  console.log('[AUTH] Token:', token ? token.substring(0, 20) + '...' : 'none');
-  console.log('[AUTH] Sessions size:', sessions.size);
+  // EventSource cannot send headers — accept token via query param (only for GET)
+  const token = h.startsWith('Bearer ') ? h.slice(7) : (req.method === 'GET' && typeof req.query.token === 'string' ? req.query.token : null);
   const s = token && sessions.get(token);
   if (!s) return res.status(401).json({ error: 'Geçersiz veya süresi dolmuş oturum' });
   if (s.expires < Date.now()) { sessions.delete(token); return res.status(401).json({ error: 'Oturum süresi doldu' }); }
@@ -102,10 +101,10 @@ const monitoring = require('./monitoring')({ run, sudo, auth });
 const { setupSwagger } = require('./swagger');
 
 app.use(express.json({ limit: '10mb' }));
+app.use('/api', users);
 app.use('/api', api);
 app.use('/api/whm', whm);
 app.use('/api', backups);
-app.use('/api', users);
 app.use('/api', ssl);
 app.use('/api', phpSelector);
 app.use('/api', firewall);

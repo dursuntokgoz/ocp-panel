@@ -17,6 +17,7 @@ import {
   BarChart2,
   Download,
   Settings,
+  KeyRound,
   ChevronRight,
   ChevronDown,
 } from 'lucide-react';
@@ -63,6 +64,10 @@ const navigation: NavItem[] = [
       { title: 'Firewall', icon: Shield, path: '/system/firewall' },
       { title: 'Monitoring', icon: BarChart2, path: '/system/monitoring' },
       { title: 'Backups', icon: Download, path: '/system/backups' },
+      { title: 'Docker', icon: HardDrive, path: '/system/docker' },
+      { title: 'Services', icon: Activity, path: '/system/services' },
+      { title: 'Live Monitor', icon: BarChart2, path: '/system/live-monitor' },
+      { title: 'User Manager', icon: Users, path: '/system/users' },
     ],
   },
 ];
@@ -158,7 +163,15 @@ export function Sidebar() {
           );
         })}
       </nav>
-      <div className="p-3 border-t border-slate-200">
+      <div className="p-3 border-t border-slate-200 space-y-0.5">
+        <NavLink
+          to="/change-password"
+          className="sidebar-item"
+          title="Change Password"
+        >
+          <KeyRound className="sidebar-item-icon" aria-hidden="true" />
+          Change Password
+        </NavLink>
         <NavLink
           to="/settings"
           className="sidebar-item"

@@ -227,16 +227,32 @@ ocp-panel/
 
 ## 🛣️ Yol Haritası
 - [x] Token tabanlı auth
-- [x] Gerçek sistem API'leri (18 uç)
+- [x] Gerçek sistem API'leri (135+ uç)
 - [x] Terminal, File Manager, Services, Process, Cron, Logs, Network, MySQL
 - [x] systemd entegrasyonu
 - [x] WHM: hesap/reseller/paket/DNS yönetimi (nginx vhost + /etc/hosts)
 - [x] WHM: e-posta hesapları (postfix + dovecot, SMTP AUTH, IMAP/POP3, kota)
-- [ ] Gerçek zamanlı grafikler (WebSocket/SSE)
 - [x] FTP hesapları (vsftpd)
 - [x] Webmail (Roundcube)
 - [x] HTTPS (self-signed SSL)
 - [x] Gerçek zamanlı grafikler (SSE + Canvas)
+- [x] **React 19 + TypeScript + Vite + Tailwind CSS v4** — tam frontend migrasyonu
+- [x] **Docker Yönetimi** — container listele/start/stop/restart/pause/kill + log/stats modal
+- [x] **Services Manager** — systemd servis listesi (filtre/arama) + start/stop/restart/reload
+- [x] **Live Monitor** — SSE ile CPU/RAM canvas grafikleri (1s interval, 60-point sliding window)
+- [x] **User Manager (RBAC)** — panel kullanıcıları CRUD, rol bazlı yetkilendirme (admin/reseller/user)
+- [x] **Change Password** — kendi parolanı değiştir (mevcut doğrulama + 8+ karakter)
+- [x] **26 → 31 E2E test** — sıfır hata, her test sonrası otomatik screenshot
+
+## 🧪 Test
+Playwright E2E suite: **31/31 ✅** (Login, Dashboard, WHM 5 modül, System 13 modül, Session, Logout)
+
+```bash
+npx playwright test        # Headless run
+npx playwright test --ui   # Interactive UI
+```
+
+Test artifact'leri: `tests/report/` + `tests/screenshots/` (her test için tam sayfa PNG)
 
 ---
 

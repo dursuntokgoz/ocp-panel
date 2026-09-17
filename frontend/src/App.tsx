@@ -23,6 +23,11 @@ import { SystemPHPSelector } from './pages/system/PHPSelector';
 import { SystemFirewall } from './pages/system/Firewall';
 import { SystemMonitoring } from './pages/system/Monitoring';
 import { SystemBackups } from './pages/system/Backups';
+import { SystemDocker } from './pages/system/Docker';
+import { SystemServices } from './pages/system/Services';
+import { SystemLiveMonitor } from './pages/system/LiveMonitor';
+import { SystemUsers } from './pages/system/Users';
+import { ChangePassword } from './pages/ChangePassword';
 import { Settings } from './pages/Settings';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { ToastContainer } from './components/ui/Toast';
@@ -66,7 +71,12 @@ function App() {
               <Route path="/system/firewall" element={<SystemFirewall />} />
               <Route path="/system/monitoring" element={<SystemMonitoring />} />
               <Route path="/system/backups" element={<SystemBackups />} />
+              <Route path="/system/docker" element={<SystemDocker />} />
+              <Route path="/system/services" element={<SystemServices />} />
+              <Route path="/system/live-monitor" element={<SystemLiveMonitor />} />
+              <Route path="/system/users" element={<SystemUsers />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/change-password" element={<ChangePassword />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Route>
           </Routes>
